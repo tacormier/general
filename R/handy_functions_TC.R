@@ -14,12 +14,32 @@ rescaleRas <- function(r, newmin, newmax) {
 
 #####################################
 # From Fabio's calc metrics code:
-#function to produce pseudo-waveforms
-makeprof <- function(mydata, res) { #mydata = las data, res = vertical resolution (m)
-  elev <- mydata$z
+# function to produce pseudo-waveforms. The function makes several adjustments to the elevation
+# values, including subtracting the DTM values to account for slope, then finding the ground peak, 
+# removing anything beneath it, and adjusting/triming the other heights relative to the ground (Fabio's code).
+# lasdata = las data, res = vertical resolution (m), dtm = high res dtm (raster) for removing 
+# slope effects (optional)
+
+makeprof <- function(lasdata, res, dtm=NULL) { 
+  #remove rows with no elevation if they exist
+  naid <- which(is.na(lasdata$z))
+  if (length(naid) > 0) lasdata <- lasdata[-naid,]
+  
+  #remove topography using DTMs if one is specified
+  if (!is.null(dtm)) {
+    ptground <- extract(dtm, lasdata[,1:2])
+    lasdata$z <- lasdata$z - ptground
+    
+    # remove rows where z=NA after extracting, then subtracting DTM 
+    # (i.e. where DTM = NA)
+    naid2 <- which(is.na(lasdata$z))
+    if (length(naid2) > 0) lasdata <- lasdata[-naid2,]
+  }
+  
+  elev <- lasdata$z
   elev0 <- elev - min(elev) #note that 0 here is the lowest elevation, not the ground peak
-  int <- mydata$i
-  clas <- mydata$c #2 - ground, 3 - low vegetation, 4 - medium vegetation, 5 - high vegetation, etc
+  int <- lasdata$i
+  clas <- lasdata$c #2 - ground, 3 - low vegetation, 4 - medium vegetation, 5 - high vegetation, etc
   breaks <- seq(min(elev0), max(elev0)+res, by=res)
   z <- breaks[2:length(breaks)]
   gmax <- max(elev0[clas==2])
@@ -42,68 +62,63 @@ makeprof <- function(mydata, res) { #mydata = las data, res = vertical resolutio
   #check: int_n should be equal to counts
   if (sum(int_n - counts) != 0) stop("Check the code... we have a problem") 
   
-  #return
-  data.frame(height=z, counts=counts, intensity=int_sum)
+  # profile df
+  profile <- data.frame(height=z, counts=counts, intensity=int_sum)
+  
+  gmax0 <- max(lasdata$z[lasdata$c==2], na.rm=T) - min(lasdata$z)
+  #profile$counts <- profile$counts/max(profile$counts[profile$height > gmax0]) #normalize lidar profile by maximum canopy return
+  genergy <- sum(profile$counts[profile$height <= gmax0])
+  tenergy <- sum(profile$counts)
+  if (gmax0 < profile$height[1]) {
+    log[p,5] <- 1
+    peakid <- 1
+  } else {
+    peakid <- which(profile$counts == max(profile$counts[profile$height <= gmax0])) #find ground peak
+    if (length(peakid) > 1) peakid <- peakid[1]
+  }
+  
+  # Adjust heights relative to ground
+  profile <- profile[peakid:nrow(profile),] #trim profile
+  gmax0c <- gmax0 - min(profile$height) #correct max ground height
+  profile$height <- profile$height - min(profile$height) #correct heights
+  
+  #return adjusted profile
+  return(profile)
 }
 
 #
-#
-# STILL IN DEV:
-# THIS IS CODE from Fabio that I can use as a ref to make the 
-# ground peak 0m - need to work this into plotWaveform function.
 
-# plotlas.files <- list.files(indir, ("*.txt$"), full.names=T)
-# plotlas <- lapply(plotlas.files, read.table, sep=",",col.names = c("x","y","z","i","a","n","r","c"))
-# plots <- read.csv(plotfile)
-# 
-# # Calc waveforms here and plop them into a list, so we don't have to keep re-running it to try different plots.
-# profile <- lapply(plotlas.csvs, makeprof, res=binsize)
-# 
-# # Make ground peak 0m
-# profdata <- array(data=NA, dim=c(length(seq(0,100,binsize)), length(plotlas.files)))
-# plotids <- array(NA, length(plotlas.files))
-# gmax0 <- lapply(plotlas, function(lasdata) max(lasdata$z[lasdata$c==2], na.rm=T) - min(lasdata$z))
-# 
-# for (g in 1:length(gmax0)){
-#   if (gmax0[[g]] < profile[[g]]$height[1]) {
-#     peakid <- 1
-#   } else {
-#     peakid <- which(profile[[g]]$counts == max(profile[[g]]$counts[profile[[g]]$height <= gmax0[[g]]])) #find ground peak
-#     if (length(peakid) > 1) peakid <- peakid[1]
-#   }
-#   
-#   profile[[g]] <- profile[[g]][peakid:nrow(profile[[g]]),] #trim profile
-#   profile[[g]]$height <- profile[[g]]$height - min(profile[[g]]$height) #correct heights
-#   
-#   # This puts all profiles into one dataframe. Could be super useful later. Right now, I have them all in a list,
-#   # and the plotting code is expecting a list.  
-#   #profdata[1:nrow(profile[[g]]),g] <- profile[[g]]$counts
-#   
-#   dummy <- gsub(".txt", "", plotlas.files[g])
-#   dummy <- strsplit(dummy, split="m_")
-#   plotids[g] <- dummy[[1]][2]
-# }
 #####################################
 
-# This function makes a plot of a lidar profile and requires ggplot2. The function finds also finds the
-# ground peak, removes anything beneath it, and adjust/trims the other heights relative to the ground (Fabio's code).
+# This function makes a plot of a lidar profile and requires ggplot2.
 # waveformDF = resulting DF after executing makeprof function; nameHeightCol = name of column containing heights;
 # nameCountCol = name of column containing counts; smoothFactor controls the degree of waveform line smoothing 
 # (should generally be less than 1 to really show peaks in lidar data, but test different factors!).
 # title = optional text for plot title; leg.txt = optional text to be printed at the bottom right of the 
-# plot (e.g., Field collected height and/or biomass).
+# plot (e.g., Field collected height and/or biomass); ylim is the limits of the y-axis and consists of
+# two numbers (e.g., ylim=c(0,75)); lineType = do you want a smoothed line ("smooth"), or the exact line ("exact")? Default
+# is smooth.
 #
-plotWaveform <- function(waveformDF, nameHeightCol, nameCountCol, smoothFactor=0.25, plot.title=NULL, leg.txt=NULL) {
+plotWaveform <- function(waveformDF, nameHeightCol, nameCountCol, smoothFactor=0.25, plot.title=NULL, leg.txt=NULL, ylim, lineType="smooth") {
   require(ggplot2)
   wave <- waveformDF
   #calculate the smooth line
-  smooth_vals = predict(loess(get(nameCountCol)~get(nameHeightCol),wave, span=smoothFactor),wave$height)
-  sm.line <- as.data.frame(cbind(smooth_vals, wave[[nameHeightCol]]))
-  names(sm.line) <- c("counts", "height")
+  if (lineType == "smooth") {
+    smooth_vals = predict(loess(get(nameCountCol)~get(nameHeightCol),wave, span=smoothFactor),wave$height)
+    sm.line <- as.data.frame(cbind(smooth_vals, wave[[nameHeightCol]]))
+    names(sm.line) <- c("counts", "height")
   
-  p <- ggplot(wave, aes(counts, height)) + ylim(0,100)+ geom_point(size=1.5) + geom_path(data=sm.line, col="chartreuse4") + 
-    theme_bw() + theme(legend.position="none") 
+    p <- ggplot(wave, aes(counts, height)) + ylim(ylim) + geom_point(size=1.5) + geom_path(data=sm.line, col="chartreuse4") + 
+      theme_bw() + theme(legend.position="none") 
   
+    } else if (lineType == "exact") {
+      p <- ggplot(wave, aes(counts, height)) + ylim(ylim) + geom_point(size=1.5) + geom_path(data=wave, col="chartreuse4") + 
+        theme_bw() + theme(legend.position="none") 
+      
+  } else {
+    stop(paste0("The lineType argument must be either 'smooth' or 'exact.' You entered '", lineType, "'. Please try again."))
+  }
+    
   # If we want to use a color gradient on the line! Would change the color in geom_path to aes(colour=wave$height)
   # + scale_colour_gradient2(low="tan4", mid="darkkhaki", high="chartreuse4",midpoint=sm.line$height[median(sm.line$counts)]) +
   
@@ -347,7 +362,7 @@ writeMDDB_multPlotsPerPixel <- function(inImg, predNames, inPlot, xcol, ycol, ou
 # (must match nlayers(inImg) (predNames), name of output buffered points (so we can comment out buffering section
 # if we run this more than once (outBuff), do you want a logfile? accepts T or F (logfile).
 #
-# REQUIRES the following packages: raster, maptools, rgdal, rgeos, geosphere.
+# REQUIRES the following packages: raster, maptools, rgdal, rgeos
 #
 # AUTHOR(s): Original script written by Mary Farina. Converted to function by Tina Cormier.
 #
@@ -435,7 +450,7 @@ writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, 
   write(paste0("opening raster data: ", inImg), lf, append=T)  
   myBands <- brick(inImg)
   n <- nlayers(myBands)
-  
+ 
   # Extract the data, specifying number of layers (automatically extracts all bands for now):
   T1 <- proc.time()
   write(paste0("extracting ", n, " bands of predictor data for ", nrow(polys.wgs84), " plots."), lf, append=T)
@@ -445,13 +460,13 @@ writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, 
   # Compute the weighted means of the landsat bands for each glas shot
   # Here, the weights are the *proportions* of each pixel inside the glas shot. 
   # length(extract.all) should give you the total number of glas shots
-  # The lapply deals with the list of dataframes. The "apply applies the weighted mean 
+  # The lapply deals with the list of dataframes. The "apply" applies the weighted mean 
   # function to each column in the dataframe.  
   weighted.means <- lapply(extract.all, function(x) apply(x, 2, weighted.mean, w=x[,n+1], na.rm=F))
   npix <- unlist(lapply(extract.all, nrow))
   results <- as.data.frame(do.call("rbind", weighted.means))[,(1:n)]
-  results <- cbind(npix, data.df[[responseCol]], results)
-  names(results) <- c("npix", responseCol,predNames)
+  results <- cbind(npix, data.df[[responseCol]], results, polys.wgs84$LON, polys.wgs84$LAT)
+  names(results) <- c("npix", responseCol,predNames, "X", "Y")
   
   #Write out the mddb file
   cat('Writing MDDB file\n')
