@@ -83,7 +83,7 @@ makeprof <- function(lasdata, res, dtm=NULL) {
   profile$height <- profile$height - min(profile$height) #correct heights
   
   #return adjusted profile
-  return(profile)
+  return(list(profile, gmax0c, genergy, tenergy))
 }
 
 #
