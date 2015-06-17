@@ -3,34 +3,57 @@ library(mgcv)
 library(gridExtra)
 library(raster)
 
-source("/mnt/a/tcormier/scripts/general/R/handy_functions_TC_testing.R")
+source("/mnt/a/tcormier/scripts/general/R/handy_functions_TC.R")
+rasterOptions(tmpdir="/home/tcormier/RasTmpDir/")
 
-indir <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/model_training/lidar_in_plots/txt/"
-binsize <- 0.5 #vertical resolution of profile (m)
-plotfile <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/field_plots/BplotsForLidarCalibBaccini_removeColumns.csv"
-figdir <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/figures/"
-dtm.file <- "/mnt/a/fgoncalves/Mexico/dtm_mosaic.tif"
+# do you want to create the profile or does it already exist ("y" or "n")
+createprof <- "y"
+# if profile already exists, filepath
+prof.file <- ""
 lineType <- "smooth"
 ylim.waves <- c(0,80)
+# If profile must be created:
+indir <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/model_training/lidar_in_plots/txt/"
+plotfile <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/field_plots/BplotsForLidarCalibBaccini_removeColumns.csv"
+figdir <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/figures/"
+
+
+binsize <- 0.5 #vertical resolution of profile (m)
+dtm.file <- "/mnt/a/fgoncalves/Mexico/dtm_mosaic.tif"
+
 
 #############################################
-dtm <- raster(dtm.file)
-plotlas.files <- list.files(indir, ("*.txt$"), full.names=T)
-plotlas <- lapply(plotlas.files, read.table, sep=",",col.names = c("x","y","z","i","a","n","r","c"))
-plots <- read.csv(plotfile)
+if (createprof == "y") {
+  dtm <- raster(dtm.file)
+  plotlas.files <- list.files(indir, ("*.txt$"), full.names=T)
+  plotlas <- lapply(plotlas.files, read.table, sep=",",col.names = c("x","y","z","i","a","n","r","c"))
+  plots <- read.csv(plotfile)
+  
+  # Calc waveforms here and plop them into a list, so we don't have to keep re-running it to try different plots.
+  makeprofile <- lapply(plotlas, makeprof, res=binsize, dtm=dtm)
+  #pull out just the profiles from the function returns
+  profile <- lapply(makeprofile, "[[", 1)
+  
+} else if (createprof == "n") {
+  profile <- load(prof.file)
 
-# Calc waveforms here and plop them into a list, so we don't have to keep re-running it to try different plots.
-profile <- lapply(plotlas, makeprof, res=binsize, dtm=dtm)
+} else {
+  stop(paste0("the variable 'createprof' must be 'y' or 'n' (lowercase). You entered ", createprof))
+}
 
-# If no waveform=specific text to be added to plots, create plots from this one line:
+# Use site name as title
 sitenames <- function(filenames) {
   paste(unlist(strsplit(unlist(strsplit(filenames, "_"))[9:10], "\\."))[1:2], collapse="_")
 }
 sites <- lapply(plotlas.files, sitenames)
-names(plotlas) <- sites
-
-plotlist <- lapply(profile, plotWaveform, nameHeightCol="height", nameCountCol="counts", ylim=ylim.waves, lineType=lineType, plot.title=names(plotlas))
-
+names(profile) <- sites
+# If no waveform=specific text to be added to plots, create plots from this one line:
+#plotlist <- lapply(profile, plotWaveform, nameHeightCol="height", nameCountCol="counts", ylim=ylim.waves, smoothFactor=0.075, lineType=lineType, plot.title=names(plotlas))
+plotwf <- function(x) {
+  plotWaveform(waveformDF=profile[[x]], nameHeightCol="height", nameCountCol="counts", ylim=ylim.waves, smoothFactor=0.1, lineType=lineType, plot.title=x)  
+}
+plotlist <- lapply(names(profile), plotwf)
+plotlist[[25]]
 #Otherwise, loop through.
 # maxhts <- data.frame(site=NA, field_maxht=NA, lidar_maxht=NA)
 # #field_AGC=NA, lidar_AGC=NA)
@@ -58,6 +81,6 @@ plotlist <- lapply(profile, plotWaveform, nameHeightCol="height", nameCountCol="
 # PRINT 2x2 per page of a pdf!
 args.list <- c(plotlist, 2,2, "")
 names(args.list) <- c(1:length(plotlist), "nrow", "ncol", "top")
-ggsave(paste0(figdir, "waveform_plots_SEAsia_", lineType, "Lines.pdf"), do.call(marrangeGrob, args.list), height=8, width=8)
+ggsave(paste0(figdir, "waveform_plots_SEAsia_", lineType, "Lines_10.pdf"), do.call(marrangeGrob, args.list), height=8, width=8)
 
 
