@@ -31,6 +31,7 @@ while (length(files.remaining) > 0) {
   
   if (length(donefiles) == 0) {
     print(paste0("there are no done files right now: ", Sys.time()))
+    Sys.sleep(60)
   } else {
     
     print(paste0("New loop at ", Sys.time()))
