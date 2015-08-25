@@ -1,3 +1,4 @@
+
 # A compilation of helpful functions that can be used across projects
 # Tina Cormier
 
@@ -17,10 +18,13 @@ rescaleRas <- function(r, newmin, newmax) {
 # function to produce pseudo-waveforms. The function makes several adjustments to the elevation
 # values, including subtracting the DTM values to account for slope, then finding the ground peak, 
 # removing anything beneath it, and adjusting/triming the other heights relative to the ground (Fabio's code).
-# lasdata = las data, res = vertical resolution (m), dtm = high res dtm (raster) for removing 
-# slope effects (optional)
+# lasdata = las data table/df, res = vertical resolution (m), dtm = high res dtm (raster) for removing 
+# slope effects (optional), max.height is the largest height to consider in metrics and is determined by the user
+# based on field data or expert knowledge; heights taller than this value are flagged. min.height is
+# lowest height considered in the metrics and is determined by the user based on field data or expert knowledge; 
+# lower heights are flagged.
 
-makeprof <- function(lasdata, res, dtm=NULL) { 
+makeprof <- function(lasdata, res, dtm=NULL, max.height=NULL, min.height) { 
   #remove rows with no elevation if they exist
   naid <- which(is.na(lasdata$z))
   if (length(naid) > 0) lasdata <- lasdata[-naid,]
@@ -28,14 +32,56 @@ makeprof <- function(lasdata, res, dtm=NULL) {
   #remove topography using DTMs if one is specified
   if (!is.null(dtm)) {
     ptground <- extract(dtm, lasdata[,1:2])
-    lasdata$z <- lasdata$z - ptground
+    naid2 <- which(is.na(ptground))
     
-    # remove rows where z=NA after extracting, then subtracting DTM 
+    # remove rows where z=NA after extracting, then subtract DTM 
     # (i.e. where DTM = NA)
-    naid2 <- which(is.na(lasdata$z))
-    if (length(naid2) > 0) lasdata <- lasdata[-naid2,]
+    if (length(naid2) > 0) {
+      ptground <- ptground[-naid2]
+      lasdata <- lasdata[-naid2,]
+    }
+    lasdata$z <- lasdata$z - ptground
+  } # end dtm if
+
+  # If there are no rows left after subracting slope:
+  if (nrow(lasdata) == 0) {
+    profile <- data.frame(height=NA, counts=NA, intensity=NA) 
+    genergy <- NA
+    tenergy <- NA
+    gmax0c <- NA
+    log.val5 <- 0
+    fgt <- 0
+    fltm <- 0
+    return(list(profile, gmax0c, genergy, tenergy, fgt, fltm, log.val5)) 
+    }
+  
+  # Tile quality check/flag generation/filtering
+  fgt <- length(lasdata$z[lasdata$z > max.height]) / length(lasdata$z) * 100 #82 m = 20% more than the maximum height measured in the field (i.e. 68 m)
+  if (fgt > 1) {
+    warning("More than 1% of normalized heights are greater than max.height") #warning("More than 1% of normalized heights > 82 m")
+  } else {
+    lasdata <- lasdata[lasdata$z <= max.height,] # less than 1% of points violate the max.height condition, so just remove those points.
+    }
+  
+  fltm <- length(lasdata$z[lasdata$z < min.height]) / length(lasdata$z) * 100
+  if (fltm > 1) {
+    warning("More than 1% of normalized heights are less than min.height") #warning("More than 1% of normalized heights < -3 m")
+  } else {
+    lasdata <- lasdata[lasdata$z >= min.height,] # less than 1% of points violate the min.height condition, so just remove those points.
   }
   
+  # If either of above flags are violated, this tile should not be used.
+  # Break from function and return their values
+  if (fgt > 1 | fltm > 1) {
+    profile <- data.frame(height=NA, counts=NA, intensity=NA) 
+    genergy <- NA
+    tenergy <- NA
+    gmax0c <- NA
+    log.val5 <- 0
+    return(list(profile, gmax0c, genergy, tenergy, fgt, fltm, log.val5))  
+    } # end fgt/fltm if
+  
+  # If all is well, continue with profile
   elev <- lasdata$z
   elev0 <- elev - min(elev) #note that 0 here is the lowest elevation, not the ground peak
   int <- lasdata$i
@@ -70,11 +116,12 @@ makeprof <- function(lasdata, res, dtm=NULL) {
   genergy <- sum(profile$counts[profile$height <= gmax0])
   tenergy <- sum(profile$counts)
   if (gmax0 < profile$height[1]) {
-    log[p,5] <- 1
+    log.val5 <- 1
     peakid <- 1
   } else {
     peakid <- which(profile$counts == max(profile$counts[profile$height <= gmax0])) #find ground peak
     if (length(peakid) > 1) peakid <- peakid[1]
+    log.val5 <- 0
   }
   
   # Adjust heights relative to ground
@@ -83,7 +130,7 @@ makeprof <- function(lasdata, res, dtm=NULL) {
   profile$height <- profile$height - min(profile$height) #correct heights
   
   #return adjusted profile
-  return(list(profile, gmax0c, genergy, tenergy))
+  return(list(profile, gmax0c, genergy, tenergy, fgt, fltm, log.val5))
 }
 
 #
@@ -99,7 +146,7 @@ makeprof <- function(lasdata, res, dtm=NULL) {
 # two numbers (e.g., ylim=c(0,75)); lineType = do you want a smoothed line ("smooth"), or the exact line ("exact")? Default
 # is smooth.
 #
-plotWaveform <- function(waveformDF, nameHeightCol, nameCountCol, smoothFactor=0.25, plot.title=NULL, leg.txt=NULL, ylim, lineType="smooth") {
+plotWaveform <- function(waveformDF, nameHeightCol, nameCountCol, smoothFactor=0.25, plot.title=NULL, leg.txt=NULL, ylim, xlim, lineType="smooth") {
   require(ggplot2)
   wave <- waveformDF
   #calculate the smooth line
@@ -110,14 +157,14 @@ plotWaveform <- function(waveformDF, nameHeightCol, nameCountCol, smoothFactor=0
     #sm.line <- as.data.frame(cbind(smooth_vals[[2]], smooth_vals[[1]]))
     names(sm.line) <- c("counts", "height")
   
-    p <- ggplot(wave, aes(counts, height)) + ylim(ylim) + geom_point(size=0.75)  + geom_path(data=sm.line, col="chartreuse4", size=0.5) + 
+    p <- ggplot(wave, aes(counts, height)) + ylim(ylim) + xlim(xlim) + geom_point()  + geom_path(data=sm.line, col="chartreuse4", size=0.5) + 
       theme_bw() + theme(legend.position="none") 
     
     # to include points too!
     #+ geom_point(size=1.5) 
   
     } else if (lineType == "exact") {
-      p <- ggplot(wave, aes(counts, height)) + ylim(ylim) + geom_path(data=wave, col="chartreuse4", size=0.5) + 
+      p <- ggplot(wave, aes(counts, height)) + ylim(ylim) + xlim(xlim) + geom_path(data=wave, col="chartreuse4", size=0.5) + 
         theme_bw() + theme(legend.position="none") 
       
       # to include points too!
@@ -139,7 +186,7 @@ plotWaveform <- function(waveformDF, nameHeightCol, nameCountCol, smoothFactor=0
     #                            gp=gpar(col="gray16")))
     #     p <- p + annotation_custom(gtxt, size=1.5)
     
-    p <- p + annotate("text",x=max(wave$counts),y=min(wave$height),hjust=1.0,vjust=.1,label=leg.txt, size=2.75)
+    p <- p + annotate("text",x=max(xlim),y=min(wave$height),hjust=1.0,vjust=.1,label=leg.txt, size=2.75)
   } #end annotation if
   
   return(p)
@@ -214,7 +261,7 @@ zeroToNA <- function(x) { x[x==0] <- NA; return(x)}
 # Name of the output MDDB csv (outMDDB), the name (case sensitive and in quotes) of the field containing modeling response values
 # in the plot data (e.g. "biomass") (reponseCol), the minimum number of samples to be considered to calculate the average within the pixel
 # (minshots), distance (meters) from the edge of a raster cell to exclude plot - usually the plot radius (dist), logfile (T/F)
-# will write a logfile to the same directory as outMDDB - default is TRUE (logfile).
+# will write a logfile to the same directory as outMDDB - default is TRUE (logfile). Write logfile 
 #
 # REQUIRES the following packages: raster, maptools, sp. Other functions: distOK and zerotoNA from /mnt/a/tcormier/scripts/general/R/handy_functions_TC.R
 #
@@ -222,7 +269,7 @@ zeroToNA <- function(x) { x[x==0] <- NA; return(x)}
 #
 # Untested with shapefile input as inPlot
 
-writeMDDB_multPlotsPerPixel <- function(inImg, predNames, inPlot, xcol, ycol, outPlotMns, outMDDB, responseCol, minshots, dist, logfile=T) {
+writeMDDB_multPlotsPerPixel <- function(inImg, predNames, inPlot, xcol, ycol, outPlotMns, outMDDB, responseCol, minshots, dist, pp, proj.in, logfile=T) {
   # Required packages
   require(raster)
   require(maptools)
@@ -243,14 +290,20 @@ writeMDDB_multPlotsPerPixel <- function(inImg, predNames, inPlot, xcol, ycol, ou
   ext <- unlist(strsplit(inPlot, "\\."))[2]
   if (ext == "csv" | ext == "CSV") {
     vec <- read.csv(inPlot)
-  } else if (ext == "shp") {
-      vec <- readShapePoints(inPlot)
-  } # end file ext vec if/else
+  } else if (ext == "shp" & pp == "points") {
+    vec <- readOGR(dirname(inPlot), unlist(strsplit(basename(inPlot), "\\."))[1])
+    coords <- as.data.frame(cbind(vec[[xcol]], vec[[ycol]]))
+    names(coords) <- c("LON", "LAT")
+    vec <- SpatialPointsDataFrame(coords, vec, proj4string = CRS(proj.in))
+  } else if (ext == "shp" & pp == "polygons") {
+    vec <- readOGR(dirname(inPlot), unlist(strsplit(basename(inPlot), "\\."))[1])
+    coords <- as.data.frame(cbind(vec[[xcol]], vec[[ycol]]))
+    names(coords) <- c("LON", "LAT")
+    vec <- SpatialPolygonsDataFrame(vec, data=data.frame(x=coords$LON, y=coords$LAT, row.names=row.names(vec)))
+  } else {
+    print("pp must equal 'polygons' or 'points'")
+  }# end file ext vec if/else
 
-  coords <- as.data.frame(cbind(vec[[xcol]], vec[[ycol]]))
-  names(coords) <- c("LON", "LAT")
-  vec <- SpatialPointsDataFrame(coords, vec, proj4string = CRS("+proj=longlat +datum=WGS84 +no_defs"))
-  
   vecTxt <- paste0("Number of samples in inPlot: ", nrow(vec))
   write(vecTxt, lf, append=T)
   
@@ -368,7 +421,8 @@ writeMDDB_multPlotsPerPixel <- function(inImg, predNames, inPlot, xcol, ycol, ou
 # the name of the column containing modeling response data (e.g., biomass column) (responseCol), the plot/shot 
 # radius **in meters** (dist.m), Name of the input image or stack of predictors (inImg), vector of predictor names 
 # (must match nlayers(inImg) (predNames), name of output buffered points (so we can comment out buffering section
-# if we run this more than once (outBuff), do you want a logfile? accepts T or F (logfile).
+# if we run this more than once (outBuff), pp can be "polygons" or "points" - to indicate if buffering is needed or not, 
+# the projection of the input datasets (must be the same for all) in WKT (proj.in), do you want a logfile? accepts T or F (logfile).
 #
 # REQUIRES the following packages: raster, maptools, rgdal, rgeos
 #
@@ -376,7 +430,7 @@ writeMDDB_multPlotsPerPixel <- function(inImg, predNames, inPlot, xcol, ycol, ou
 #
 # Untested with shapefile input as inPlot
 
-writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, outMDDB, inImg, predNames, outBuff, logfile=T) {
+writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, outMDDB, inImg, predNames, outBuff, pp, proj.in, logfile=T) {
   require(raster)
   require(maptools)
   require(rgdal)
@@ -399,70 +453,87 @@ writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, 
   ext <- unlist(strsplit(inPlot, "\\."))[2]
   if (ext == "csv" | ext == "CSV") {
     vec <- read.csv(inPlot)
-  } else if (ext == "shp") {
-    vec <- readShapePoints(inPlot)
-  } # end file ext vec if/else
+  } else if (ext == "shp" & pp == "points") {
+    vec <- readOGR(dirname(inPlot), unlist(strsplit(basename(inPlot), "\\."))[1])
+    coords <- as.data.frame(cbind(vec[[xcol]], vec[[ycol]]))
+    names(coords) <- c("LON", "LAT")
+    vec <- SpatialPointsDataFrame(coords, vec, proj4string = CRS(proj.in))
+  } else if (ext == "shp" & pp == "polygons") {
+    vec <- readOGR(dirname(inPlot), unlist(strsplit(basename(inPlot), "\\."))[1])
+    coords <- as.data.frame(cbind(vec[[xcol]], vec[[ycol]]))
+    names(coords) <- c("LON", "LAT")
+    vec <- SpatialPolygonsDataFrame(vec, data=data.frame(LON=coords$LON, LAT=coords$LAT, b=vec[[responseCol]],row.names=row.names(vec)))
+    names(vec)[3] <- responseCol
+  } else {
+    print("pp must equal 'polygons' or 'points'")
+  }# end file ext vec if/else
   
-  coords <- as.data.frame(cbind(vec[[xcol]], vec[[ycol]]))
-  names(coords) <- c("LON", "LAT")
-  vec <- SpatialPointsDataFrame(coords, vec, proj4string = CRS("+proj=longlat +datum=WGS84 +no_defs"))
-  
+    #vec <- SpatialPointsDataFrame(coords, vec, proj4string = CRS("+proj=utm +zone=16 +datum=WGS84 +units=m +no_defs"))
   # Create circular polygons with 35m radius around each glas shot (i.e., a shapefile of shot footprints):
-  write("buffering points by plot radius", lf, append=T)
+  if (pp=="points") {
+    write("buffering points by plot radius", lf, append=T)
+#     if (proj.in != "+proj=longlat +datum=WGS84 +no_defs") {
+#       vec <- spTransform(vec, CRSobj = CRS("+proj=longlat +datum=WGS84 +no_defs"))
+#     }
+    # gBuffer requires projected coordinates, so just for a minute:
+    # Use an equal-area projection to buffer the points, then put back to WGS84
+    # Adapted from: http://gis.stackexchange.com/questions/121489/1km-circles-around-lat-long-points-in-many-places-in-world
+    aeqd.buffer <- function(p, r)
+    {
+      stopifnot(length(p) == 1)
+      aeqd <- sprintf("+proj=aeqd +lat_0=%s +lon_0=%s +x_0=0 +y_0=0",
+                      p@coords[[2]], p@coords[[1]])
+      projected <- spTransform(p, CRS(aeqd))
+      buffered <- gBuffer(projected, width=r, quadsegs=90,byid=TRUE)
+      spTransform(buffered, p@proj4string)
+    }
+    
+    # Make a list, each element of the list has one SpatialPolygons polygon (one circle)
+    vec.buff <- list()
+    
+    t.poly <- proc.time()
+    for (poly in 1:nrow(vec)) {
+      vec.buff[[poly]] <- aeqd.buffer(vec[poly,], dist.m) 
+    }
+    t.polydiff <- proc.time()-t.poly
+    write(paste0("buffering completed for ", length(vec.buff), " points in ", round(t.polydiff[3], 2), " seconds"), lf, append=T)
   
-  # gBuffer requires projected coordinates, so just for a minute:
-  # Use an equal-area projection to buffer the points, then put back to WGS84
-  # Adapted from: http://gis.stackexchange.com/questions/121489/1km-circles-around-lat-long-points-in-many-places-in-world
-  aeqd.buffer <- function(p, r)
-  {
-    stopifnot(length(p) == 1)
-    aeqd <- sprintf("+proj=aeqd +lat_0=%s +lon_0=%s +x_0=0 +y_0=0",
-                    p@coords[[2]], p@coords[[1]])
-    projected <- spTransform(p, CRS(aeqd))
-    buffered <- gBuffer(projected, width=r, quadsegs=90,byid=TRUE)
-    spTransform(buffered, p@proj4string)
+    # Get the ID names of each polygon...intially they are all the same, but each polygon needs a unique ID:
+    IDs <- sapply(vec.buff, function(x) slot(slot(x, "polygons")[[1]], "ID"))
+    # Give each polygon a unique ID  (1: number of list elements)
+    Spol1 <- SpatialPolygons(lapply(1:length(vec.buff), function(x) {
+      Pol <- slot(vec.buff[[x]], "polygons")[[1]]
+      slot(Pol, "ID") <- as.character(x)
+      Pol } ) )
+    # Get the IDs, and set the row.names of the polygons as these IDs
+    IDs = sapply(slot(Spol1, "polygons"), function(x) slot(x, "ID"))
+    row.names(Spol1) = IDs
+    #As a check, this should be true now:
+    length(unique(IDs)) == length(vec.buff)
+    #----------------------------
+    # Build a data.frame to attach to the SpatialPolyons
+    data.df = data.frame(IDs,vec);  row.names(data.df)=IDs
+    spol.df = SpatialPolygonsDataFrame(Spol1,data = data.df)
+    projection(spol.df) = CRS(proj.in)
+    #assign the final variable, "polys.wgs84.35m" as the spatial polygons dataframe:
+    polys.crs=spol.df
+    writePolyShape(polys.crs, fn = outBuff)
+  } else {
+      data.df <- as.data.frame(vec)
+      polys.crs <- vec
   }
-  
-  # Make a list, each element of the list has one SpatialPolygons polygon (one circle)
-  vec.buff <- list()
-  
-  t.poly <- proc.time()
-  for (poly in 1:nrow(vec)) {
-    vec.buff[[poly]] <- aeqd.buffer(vec[poly,], dist.m) 
-  }
-  t.polydiff <- proc.time()-t.poly
-  write(paste0("buffering completed for ", length(vec.buff), " points in ", round(t.polydiff[3], 2), " seconds"), lf, append=T)
-
-  # Get the ID names of each polygon...intially they are all the same, but each polygon needs a unique ID:
-  IDs <- sapply(vec.buff, function(x) slot(slot(x, "polygons")[[1]], "ID"))
-  # Give each polygon a unique ID  (1: number of list elements)
-  Spol1 <- SpatialPolygons(lapply(1:length(vec.buff), function(x) {
-    Pol <- slot(vec.buff[[x]], "polygons")[[1]]
-    slot(Pol, "ID") <- as.character(x)
-    Pol } ) )
-  # Get the IDs, and set the row.names of the polygons as these IDs
-  IDs = sapply(slot(Spol1, "polygons"), function(x) slot(x, "ID"))
-  row.names(Spol1) = IDs
-  #As a check, this should be true now:
-  length(unique(IDs)) == length(vec.buff)
-  #----------------------------
-  # Build a data.frame to attach to the SpatialPolyons
-  data.df = data.frame(IDs,vec);  row.names(data.df)=IDs
-  spol.df = SpatialPolygonsDataFrame(Spol1,data = data.df)
-  projection(spol.df) = CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0")
-  #assign the final variable, "polys.wgs84.35m" as the spatial polygons dataframe:
-  polys.wgs84=spol.df
-  writePolyShape(polys.wgs84, fn = outBuff)
   
   # Get image/raster data
   write(paste0("opening raster data: ", inImg), lf, append=T)  
   myBands <- brick(inImg)
+  # Some NA value housekeeping
+  #myBands[myBands == -9999 | myBands == -32768 | myBands == 32767] <- NA
   n <- nlayers(myBands)
  
   # Extract the data, specifying number of layers (automatically extracts all bands for now):
   T1 <- proc.time()
-  write(paste0("extracting ", n, " bands of predictor data for ", nrow(polys.wgs84), " plots."), lf, append=T)
-  extract.all = extract(myBands,polys.wgs84,nl=n,weights=TRUE)
+  write(paste0("extracting ", n, " bands of predictor data for ", nrow(polys.crs), " plots."), lf, append=T)
+  extract.all = extract(myBands,polys.crs,nl=n,weights=TRUE)
   write(paste0("finished extraction in ", round((proc.time()[3]-T1[3])/60,2), " minutes."), lf, append=T)
   
   # Compute the weighted means of the landsat bands for each glas shot
@@ -470,11 +541,28 @@ writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, 
   # length(extract.all) should give you the total number of glas shots
   # The lapply deals with the list of dataframes. The "apply" applies the weighted mean 
   # function to each column in the dataframe.  
-  weighted.means <- lapply(extract.all, function(x) apply(x, 2, weighted.mean, w=x[,n+1], na.rm=F))
-  npix <- unlist(lapply(extract.all, nrow))
+  
+  # first, get positions of null points (no pixels intersected the points)
+  extract.nullpos <- unlist(lapply(extract.all, function(x) ifelse(is.null(dim(x)), 0, 1)))
+  # remove null values from extract.all and from polys/training data
+  extract.valid <- extract.all[extract.nullpos==1]
+  
+  # Now remove -9999 values from each df in the list - they should not count toward any calcs
+  extract.final <- lapply(extract.valid, function(x) ifelse(x==-9999, NA, x))
+  
+  weighted.means <- lapply(extract.final, function(x) apply(x, 2, weighted.mean, w=x[,n+1], na.rm=F))
+  
+  # Total number of pixels in each plot
+  npix.tot <- unlist(lapply(extract.final, nrow))
+  # Number of NA pixels in calculation - the max of all the bands, as NA values might
+  # not be in the same location for each band, esp if they come from different sources.
+  npix.na <- unlist(lapply(extract.final, function(x) max(colSums(is.na(x)))))
+  # Difference - means the number of pixels for which we have complete data in a plot.
+  npix <- npix.tot - npix.na
+  
   results <- as.data.frame(do.call("rbind", weighted.means))[,(1:n)]
-  results <- cbind(npix, data.df[[responseCol]], results, polys.wgs84$LON, polys.wgs84$LAT)
-  names(results) <- c("npix", responseCol,predNames, "X", "Y")
+  results <- cbind(npix, data.df[[responseCol]][extract.nullpos==1], results, polys.crs$LON[extract.nullpos==1], polys.crs$LAT[extract.nullpos==1])
+  names(results) <- c("npix_nonNA", responseCol,predNames, "X", "Y")
   
   #Write out the mddb file
   cat('Writing MDDB file\n')
@@ -605,3 +693,105 @@ stratified <- function(df, group, size, select = NULL,
 ################## Round up to nearest "to" value ################## 
 roundUp <- function(x,to=10) to*(x%/%to + as.logical(x%%to))
 
+################### Multiple Plots Per Page ################## 
+# Function directly taken from: http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/
+# Multiple plot function
+#
+# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+# - cols:   Number of columns in layout
+# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+#
+# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+# then plot 1 will go in the upper left, 2 will go in the upper right, and
+# 3 will go all the way across the bottom.
+#
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+  
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+  
+  numPlots = length(plots)
+  
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                     ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+  
+  if (numPlots==1) {
+    print(plots[[1]])
+    
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+################# las2tiles ################# 
+#
+# Write documentation!
+#
+# See http://www.dmap.co.uk/utmworld.htm for UTM zones as used by lastools
+# Make sure las coordinates are in UTM (e.g., '50N').
+
+# siteID can be numeric or text and should identify or name the site (for output
+# las file naming). 
+
+las2tiles <- function(lasdir, tilesize, rawFormat, utmZone, siteID, rm.tmp) {
+  # make a few directories
+  dir.create(paste0(lasdir, "/temp"), showWarnings = F)
+  dir.create(paste0(lasdir, "/Tiles_", tilesize, "m"), showWarnings = F)
+  dir.create(paste0(lasdir, "/Tiles_", tilesize, "m_geo"), showWarnings = F)
+  
+  # Get list of las files in lasdir
+  p <- glob2rx(paste0("*", rawFormat))
+  lasfiles <- list.files(lasdir, p, full.names=T)
+  
+  # check files (http://rapidlasso.com/2013/04/20/tutorial-quality-checking/)
+  info.cmd <- paste0("/mnt/s/LAStools/bin/lasinfo -i ", lasdir, "/*.", rawFormat, " -compute_density")
+  system(info.cmd)
+  
+  # lasvalidate and lasview currently fail on the linux side because they try to open an X 
+  # window and can't. Ask Fabio if these lines are necessary. 
+  val.cmd <- paste0("wine /mnt/s/LAStools/bin/lasvalidate.exe -i ", lasdir, "/*.", rawFormat, " -oxml")
+  system(val.cmd)
+#   view.cmd <- paste0("wine /mnt/s/LAStools/bin/lasview.exe -i ", lasdir, "/*.", rawFormat, " -gui")
+#   system(view.cmd)
+  
+  # Merge files before using lastile. lastile could do it all, but it doesn't work sometimes
+  merge.cmd <- paste0("/mnt/s/LAStools/bin/lasmerge -i ", lasdir, "/*.", rawFormat, " -odir ", lasdir, " -o merge.laz")
+  system(merge.cmd)
+  
+  # Tile all points from all files using a tile size of tileszie
+  tile.cmd <- paste0("/usr/bin/wine /mnt/s/LAStools/bin/lastile.exe -i ", lasdir, "/merge.laz -odir ", lasdir, "/temp -tile_size ", tilesize, " -olas -o ", site, " -rescale 0.01 0.01 0.01")
+  system(tile.cmd)
+  
+  # convert las2txt
+  txt.cmd <- paste0("/mnt/s/LAStools/bin/las2txt -i ", lasdir, "/temp/*.las -odir ", lasdir, "/Tiles_", tilesize, "m/ -parse xyzianrc -sep comma")
+  system(txt.cmd)
+  
+  # Make a grid for use in R
+  grid.cmd <- paste0("/usr/bin/wine /mnt/s/LAStools/bin/lasgrid.exe -i ", lasdir, "/temp/*.las -odir ", lasdir, "/Tiles_", tilesize, "m_geo -merged -o ", site, "_grid.tif -step ", tilesize, " -utm ", utmZone, " -counter_32bit")
+  system(grid.cmd)
+  
+  # Remove temp dir and merge.laz file
+  if (rm.tmp == T) {
+    unlink(paste0(lasdir, "/temp/"))
+    file.remove(paste0(lasdir, "/merge.laz"))
+  }
+
+} # end las2tiles

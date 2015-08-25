@@ -11,17 +11,22 @@ createprof <- "y"
 # if profile already exists, filepath
 prof.file <- ""
 lineType <- "smooth"
-ylim.waves <- c(0,80)
+smoothVal <- 0.5
+#ylim.waves <- c(0,80)
+#xlim.waves <- c(0,200)
 # If profile must be created:
 indir <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/model_training/lidar_in_plots/txt/"
-plotfile <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/field_plots/BplotsForLidarCalibBaccini_removeColumns.csv"
-figdir <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/figures/"
+#indir <- "/mnt/r/Mex_Lidar/Cartodata/Campeche_Yucatan/LAS/Q1/Tiles_50m/"
+#indir <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/txt/CampecheYucatan/"
+plotfile <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/field_plots/BplotsForLidarCalibBaccini_poly_10m_rad_addNoBiomassPlots_removeColumns.csv"
+figdir <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/model_training/lidar_in_plots/txt/"
 
 
 binsize <- 0.5 #vertical resolution of profile (m)
+max.wavelength <- 75
 dtm.file <- "/mnt/a/fgoncalves/Mexico/dtm_mosaic.tif"
-
-
+#dtm.file <- "/mnt/r/Mex_Lidar/Cartodata/Campeche_Yucatan/Deliverables/Mosaics/Q1/Q1_DTM.tif"
+#dtm.file <- "/mnt/r/Mex_Lidar/Cartodata/Oaxaca2/Deliverables/Mosaics/DTM.tif"
 #############################################
 if (createprof == "y") {
   dtm <- raster(dtm.file)
@@ -30,7 +35,7 @@ if (createprof == "y") {
   plots <- read.csv(plotfile)
   
   # Calc waveforms here and plop them into a list, so we don't have to keep re-running it to try different plots.
-  makeprofile <- lapply(plotlas, makeprof, res=binsize, dtm=dtm)
+  makeprofile <- lapply(plotlas, makeprof, res=binsize, dtm=dtm, max.wavelength=max.wavelength)
   #pull out just the profiles from the function returns
   profile <- lapply(makeprofile, "[[", 1)
   
@@ -43,44 +48,73 @@ if (createprof == "y") {
 
 # Use site name as title
 sitenames <- function(filenames) {
-  paste(unlist(strsplit(unlist(strsplit(filenames, "_"))[9:10], "\\."))[1:2], collapse="_")
+  paste(unlist(strsplit(unlist(strsplit(filenames, "_"))[10:11], "\\."))[1:2], collapse="_")
 }
 sites <- lapply(plotlas.files, sitenames)
 names(profile) <- sites
+
+# Find xlim and ylim
+saveAll <- profile
+profile <- profile[29:30]
+
+xmax <- roundUp(sapply(do.call("rbind",profile),max)[2],to = 5)
+ymax <- roundUp(sapply(do.call("rbind",profile),max)[1],to = 5)
+xlim.waves <- c(0,xmax)
+ylim.waves <- c(0,ymax)
+
 # If no waveform=specific text to be added to plots, create plots from this one line:
 #plotlist <- lapply(profile, plotWaveform, nameHeightCol="height", nameCountCol="counts", ylim=ylim.waves, smoothFactor=0.075, lineType=lineType, plot.title=names(plotlas))
 plotwf <- function(x) {
-  plotWaveform(waveformDF=profile[[x]], nameHeightCol="height", nameCountCol="counts", ylim=ylim.waves, smoothFactor=0.1, lineType=lineType, plot.title=x)  
+  plotWaveform(waveformDF=profile[[x]], nameHeightCol="height", nameCountCol="counts", ylim=ylim.waves, xlim=xlim.waves, smoothFactor=smoothVal, lineType=lineType, plot.title=x)  
 }
 plotlist <- lapply(names(profile), plotwf)
-plotlist[[25]]
+plotlist[[2]]
+
 #Otherwise, loop through.
-# maxhts <- data.frame(site=NA, field_maxht=NA, lidar_maxht=NA)
-# #field_AGC=NA, lidar_AGC=NA)
-# 
-# plotlist <- list()
-# for (i in 1:length(profile)) {
-#   #hack
-#   prof <- profile[[i]]
-#   site <- paste(unlist(strsplit(unlist(strsplit(plotlas.files[i], "_"))[9:10], "\\."))[1:2], collapse="_")
-#   #used sprintf to keep trailing zeros
-#   biomass <- sprintf("%.2f", round(plots$AGLB__Mg_C[plots$PlotID == site], digits=2))
-#   tree.ht <- sprintf("%.2f", round(plots$Tree_Hei_2[plots$PlotID == site], digits=2))
-#   
-#   maxhts[i,] <- c(site, tree.ht, max(prof$height))
-#   #biomass, NA)
-#   
-#   # Add text to plot (still working on making this prettier - a little bit of a hack w/ adding spaces to 
-#   # make things sort of line up better.)
-#   annotation <- paste0("Field Data:              \nTallest Tree = ", tree.ht, " m \nAGB = ", biomass, " MgC/ha")
-#   
-#   plotlist[[i]] <- plotWaveform(prof, nameHeightCol="height",nameCountCol="counts", plot.title=site, leg.txt = annotation, ylim=ylim.waves, lineType=lineType)
-#   plotlist[[i]]  
-# } #end profile loop
+maxhts <- data.frame(site=NA, field_maxht=NA, lidar_maxht=NA)
+#field_AGC=NA, lidar_AGC=NA)
 
-# PRINT 2x2 per page of a pdf!
-args.list <- c(plotlist, 2,2, "")
-names(args.list) <- c(1:length(plotlist), "nrow", "ncol", "top")
-ggsave(paste0(figdir, "waveform_plots_SEAsia_", lineType, "Lines_10.pdf"), do.call(marrangeGrob, args.list), height=8, width=8)
+plotlist <- list()
+for (i in 1:length(profile)) {
+  #hack
+  prof <- profile[[i]]
+  site <- paste(unlist(strsplit(unlist(strsplit(plotlas.files[i], "_"))[10:11], "\\."))[1:2], collapse="_")
+  #used sprintf to keep trailing zeros
+  biomass <- sprintf("%.2f", round(plots$AGLB__Mg_C[plots$PlotID == site], digits=2))
+  tree.ht <- sprintf("%.2f", round(plots$Tree_Hei_2[plots$PlotID == site], digits=2))
+  
+  maxhts[i,] <- c(site, tree.ht, max(prof$height))
+  #biomass, NA)
+  
+  # Add text to plot (still working on making this prettier - a little bit of a hack w/ adding spaces to 
+  # make things sort of line up better.)
+  annotation <- paste0("Field Data:              \nTallest Tree = ", tree.ht, " m \nAGB = ", biomass, " MgC/ha")
+  
+  plotlist[[i]] <- plotWaveform(prof, nameHeightCol="height",nameCountCol="counts", plot.title=site, leg.txt = annotation, 
+                                ylim=ylim.waves, xlim=xlim.waves, lineType=lineType, smoothFactor = smoothVal)
+  plotlist[[i]]  
+} #end profile loop
 
+# # PRINT 2x2 per page of a pdf!
+# args.list <- c(plotlist, 2,2)
+# names(args.list) <- c(1:length(plotlist), "nrow", "ncol")
+# ggsave(paste0(figdir, "waveform_plots_SEAsia_", lineType, "Lines_10.pdf"), do.call("marrangeGrob", args.list), height=8, width=8)
+#ggsave(paste0(figdir, "waveform_plots_SEAsia_", lineType, "Lines_10.pdf"), plotlist, height=8, width=8)
+
+pdf(file=paste0(figdir, "waveform_plots_SEAsia_", lineType,"_", sub("\\.", "", smoothVal), ".pdf"), onefile=T, width=8, height=8)
+pgsetup <- seq(from=1, to=length(plotlist), by=4)
+for (pl in pgsetup) {
+  if (pl != pgsetup[length(pgsetup)]) {
+  plot.pg <- plotlist[pl:(pl+3)]
+  } else {
+    plot.pg <- plotlist[pl:(length(plotlist))]
+  }
+  multiplot(plotlist=plot.pg, layout=matrix(c(1,2,3,4), byrow=T, nrow=2))
+}
+dev.off()
+#ggsave(paste0(figdir, "waveform_plots_SEAsia_", lineType, ".pdf"), multiplot(plotlist=plotlist, cols=2, nrow=2),height=8, width=8) 
+
+
+# Hard coded for Mexico report
+# ggsave(paste0(figdir, "waveform_plots_Mex1_bio_CampecheYucatan_3mgha.pdf"), plotlist[[2]], height=8, width=8)
 

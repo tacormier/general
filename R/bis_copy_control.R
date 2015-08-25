@@ -14,6 +14,9 @@ segdir <- "/mnt/t/testing/mexico/biomass/alos/biomass_modeling/workshop_data/seg
 allfiles <- list.files(tifdir, "*hhhvzratio.tif$", full.names=T)
 segfiles <- list.files(segdir, glob2rx("*hhhvzratio.tif_7_01_09.tif"), full.names=T)
 
+# To remove
+torem <- segfiles[sub("_7_01_09.tif", "", basename(segfiles)) %in% (basename(allfiles)) == F]
+
 # the difference (the ones we still need to segment)
 todo <- allfiles[(basename(allfiles) %in% sub("_7_01_09.tif", "", basename(segfiles))) == F]
 # Make a list of all images to be segmented from the cluster

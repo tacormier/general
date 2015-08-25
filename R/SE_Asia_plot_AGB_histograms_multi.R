@@ -1,17 +1,33 @@
+# We wanted to know if the distribution of the plots matched the distribution of biomass in the 
+# overall sites.
+library(ggplot2)
 library(raster)
 
-l1 <- "/mnt/a/fgoncalves/SE_Asia/Mapping/Amindo/Tiles_20m_geo/agb_map.tif"
+# l1 <- "/mnt/a/fgoncalves/SE_Asia/Mapping/Amindo/Tiles_20m_geo/agb_map.tif"
+# 
+# l2 <- "/mnt/a/fgoncalves/SE_Asia/Mapping/Karya_Lestari/Tiles_20m_geo/agb_map.tif"
+# 
+# l3 <- "/mnt/a/fgoncalves/SE_Asia/Mapping/Meraang/Tiles_20m_geo/agb_map.tif"
+# 
+# l4 <- "/mnt/a/fgoncalves/SE_Asia/Mapping/Narkata_north/Tiles_20m_geo/agb_map.tif"
+# l5 <- "/mnt/a/fgoncalves/SE_Asia/Mapping/Narkata_south/Tiles_20m_geo/agb_map.tif"
+# 
+# l6 <- "/mnt/a/fgoncalves/SE_Asia/Mapping/Sumalindo_bio/Tiles_20m_geo/agb_map.tif"
+# l7 <- "/mnt/a/fgoncalves/SE_Asia/Mapping/Sumalindo_east/Tiles_20m_geo/agb_map.tif"
+# l8 <- "/mnt/a/fgoncalves/SE_Asia/Mapping/Sumalindo_west/Tiles_20m_geo/agb_map.tif"
 
-l2 <- "/mnt/a/fgoncalves/SE_Asia/Mapping/Karya_Lestari/Tiles_20m_geo/agb_map.tif"
+l1 <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/results/Amindo_agb_map_fourier_new.tif"
 
-l3 <- "/mnt/a/fgoncalves/SE_Asia/Mapping/Meraang/Tiles_20m_geo/agb_map.tif"
+l2 <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/results/Karya_Lestari_agb_map_fourier_new.tif"
 
-l4 <- "/mnt/a/fgoncalves/SE_Asia/Mapping/Narkata_north/Tiles_20m_geo/agb_map.tif"
-l5 <- "/mnt/a/fgoncalves/SE_Asia/Mapping/Narkata_south/Tiles_20m_geo/agb_map.tif"
+l3 <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/results/Meraang_agb_map_fourier_new.tif"
 
-l6 <- "/mnt/a/fgoncalves/SE_Asia/Mapping/Sumalindo_bio/Tiles_20m_geo/agb_map.tif"
-l7 <- "/mnt/a/fgoncalves/SE_Asia/Mapping/Sumalindo_east/Tiles_20m_geo/agb_map.tif"
-l8 <- "/mnt/a/fgoncalves/SE_Asia/Mapping/Sumalindo_west/Tiles_20m_geo/agb_map.tif"
+l4 <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/results/Narkata_north_agb_map_fourier_new.tif"
+l5 <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/results/Narkata_south_agb_map_fourier_new.tif"
+
+l6 <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/results/Sumalindo_bio_agb_map_fourier_new.tif"
+l7 <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/results/Sumalindo_east_agb_map_fourier_new.tif"
+l8 <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/results/Sumalindo_west_agb_map_fourier_new.tif"
 
 #######################################
 pd1.vec <- getValues(raster(l1))
@@ -34,7 +50,7 @@ all <- data.frame(dataset=c(rep('Amindo', length(pd1.vec)), rep('Karya_Lestari',
 all.sub <- all[all$value >= 1 & all$value <= 700,]
 all.sub <- all.sub[!is.na(all.sub$dataset),]
 
-plotfile <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/field_plots/BplotsForLidarCalibBaccini_removeColumns.csv"
+plotfile <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/field_plots/BplotsForLidarCalibBaccini_poly_10m_rad_addNoBiomassPlots.csv"
 plots <- read.csv(plotfile)
 mean(plots$AGLB__Mg_C)
 sd(plots$AGLB__Mg_C)
@@ -49,7 +65,7 @@ sd <- sprintf("%.2f", round(tapply(all.sub$value, INDEX = all.sub$dataset, FUN =
 
 # label placement df
 labs=paste0("mean AGB = ", means, "\n   sd = ", sd)
-lab.df <- data.frame(x=rep(500, length(sd)), y=rep(0.18, length(sd)), dataset=names,labels=labs)
+lab.df <- data.frame(x=rep(500, length(sd)), y=rep(0.22, length(sd)), dataset=names,labels=labs)
 #histogram
 # to get same y axis, used the first answer from this link: http://stackoverflow.com/questions/22181132/normalizing-y-axis-in-histograms-in-r-ggplot-to-proportion-by-group
 # COLOR
@@ -58,17 +74,17 @@ d.plot <- ggplot(all.sub,aes(x=value,fill=dataset))+ xlim(0,700)+ ylab("Density"
             scale_fill_discrete(name="Site") +
             facet_wrap(~dataset,nrow=2)
 # B&W
-d.plot <- ggplot(all.sub,aes(x=value))+ xlim(0,700)+ ylab("Density")+xlab("AGB (MgC/ha)")+
-  geom_histogram(aes(y= 25*..density..),binwidth=25)+
-  scale_fill_discrete(name="Site") +
-  facet_wrap(~dataset,nrow=2)
+# d.plot <- ggplot(all.sub,aes(x=value))+ xlim(0,700)+ ylab("Density")+xlab("AGB (MgC/ha)")+
+#   geom_histogram(aes(y= 25*..density..),binwidth=25)+
+#   scale_fill_discrete(name="Site") +
+#   facet_wrap(~dataset,nrow=2)
 d.plot
 #to add color legend back in where field plots are listed: 
 #theme(legend.justification=c(.9,.2), legend.position=c(.9,.2))+
 d.plot <- d.plot + geom_text(aes(x, y, label=labels, group=NULL),data=lab.df, size=3, hjust=0.5)
 d.plot
 
-ggsave("/mnt/a/tcormier/SE_Asia/Ellis_Paper/figures/agb_histograms_subset_BW.pdf", plot = d.plot, width = 8, height=8)
+ggsave("/mnt/a/tcormier/SE_Asia/Ellis_Paper/figures/agb_histograms_subset_color_GroundAdded.pdf", plot = d.plot, width = 8, height=8)
 
 
 # ggplot(data=plots,aes(x=AGLB__Mg_C))+ ylab("density")+xlab("AGB (MgC/ha)")+
