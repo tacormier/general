@@ -743,30 +743,47 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
 
 ################# las2tiles ################# 
 #
-# Write documentation!
+# This function was adapted from a windows batch file written by Fabio.
+# The function first validates the las tiles. Then it merges them into one .laz
+# file for tiling. The merged file is then cut into tiles of a size specified by 
+# the user. The tiled las files are converedted to .txt files as well as tifs.
+# The user has the option to remove the tiled las files or keep them. 
 #
-# See http://www.dmap.co.uk/utmworld.htm for UTM zones as used by lastools
-# Make sure las coordinates are in UTM (e.g., '50N').
+# NOTE: This function writes files to disk. It creates directories within lasdir and
+# writes outputs into these new directories. Some file information is returned by the function.
+# The first number is the number of original las files in lasdir. The second value is T/F and 
+# indicates whether all of the las tiles were converted to txt files properly (T) or not (F). 
+# The third value is the filepath to the grid.
+#
+# Arugments: lasdir is the directory containing the original las files. tilesize is a
+# numeric value representing the desired tile size in meters. rawFormat specifies the 
+# lidar file format, usually "las". utmZone specifies the zone and hemisphere (e.g., '50N')
+# See http://www.dmap.co.uk/utmworld.htm for UTM zones as used by lastools. siteID is some
+# sort of identifier for the site (i.e. "Amindo", "Site1") and can contain no spaces. rm.tmp is
+# a T/F - do you want to keep the tiled las files (which would be duplicates of the txt files 
+# created); requires capital T or F.
 
-# siteID can be numeric or text and should identify or name the site (for output
-# las file naming). 
 
-las2tiles <- function(lasdir, tilesize, rawFormat, utmZone, siteID, rm.tmp) {
+las2tiles <- function(lasdir, tilesize, rawFormat='las', utmZone, siteID, rm.tmp=T) {
   # make a few directories
-  dir.create(paste0(lasdir, "/temp"), showWarnings = F)
-  dir.create(paste0(lasdir, "/Tiles_", tilesize, "m"), showWarnings = F)
-  dir.create(paste0(lasdir, "/Tiles_", tilesize, "m_geo"), showWarnings = F)
+  tmpdir <- paste0(lasdir, "/temp/")
+  tiledir <- paste0(lasdir, "/Tiles_", tilesize, "m/")
+  geodir <- paste0(lasdir, "/Tiles_", tilesize, "m_geo/")
+  
+  dir.create(tmpdir, showWarnings = F)
+  dir.create(tiledir, showWarnings = F)
+  dir.create(geodir, showWarnings = F)
   
   # Get list of las files in lasdir
-  p <- glob2rx(paste0("*", rawFormat))
+  p <- glob2rx(paste0("*.", rawFormat))
   lasfiles <- list.files(lasdir, p, full.names=T)
   
   # check files (http://rapidlasso.com/2013/04/20/tutorial-quality-checking/)
   info.cmd <- paste0("/mnt/s/LAStools/bin/lasinfo -i ", lasdir, "/*.", rawFormat, " -compute_density")
   system(info.cmd)
   
-  # lasvalidate and lasview currently fail on the linux side because they try to open an X 
-  # window and can't. Ask Fabio if these lines are necessary. 
+  # lasview currently fails on the linux side because it tries to open an X 
+  # window and can't. 
   val.cmd <- paste0("wine /mnt/s/LAStools/bin/lasvalidate.exe -i ", lasdir, "/*.", rawFormat, " -oxml")
   system(val.cmd)
 #   view.cmd <- paste0("wine /mnt/s/LAStools/bin/lasview.exe -i ", lasdir, "/*.", rawFormat, " -gui")
@@ -777,21 +794,99 @@ las2tiles <- function(lasdir, tilesize, rawFormat, utmZone, siteID, rm.tmp) {
   system(merge.cmd)
   
   # Tile all points from all files using a tile size of tileszie
-  tile.cmd <- paste0("/usr/bin/wine /mnt/s/LAStools/bin/lastile.exe -i ", lasdir, "/merge.laz -odir ", lasdir, "/temp -tile_size ", tilesize, " -olas -o ", site, " -rescale 0.01 0.01 0.01")
+  tile.cmd <- paste0("/usr/bin/wine /mnt/s/LAStools/bin/lastile.exe -i ", lasdir, "/merge.laz -odir ", tmpdir, " -tile_size ", tilesize, " -olas -o ", siteID, " -rescale 0.01 0.01 0.01")
   system(tile.cmd)
   
   # convert las2txt
-  txt.cmd <- paste0("/mnt/s/LAStools/bin/las2txt -i ", lasdir, "/temp/*.las -odir ", lasdir, "/Tiles_", tilesize, "m/ -parse xyzianrc -sep comma")
+  txt.cmd <- paste0("/mnt/s/LAStools/bin/las2txt -i ", tmpdir, "*.las -odir ", tiledir, " -parse xyzianrc -sep comma")
   system(txt.cmd)
   
   # Make a grid for use in R
-  grid.cmd <- paste0("/usr/bin/wine /mnt/s/LAStools/bin/lasgrid.exe -i ", lasdir, "/temp/*.las -odir ", lasdir, "/Tiles_", tilesize, "m_geo -merged -o ", site, "_grid.tif -step ", tilesize, " -utm ", utmZone, " -counter_32bit")
+  grid.cmd <- paste0("/usr/bin/wine /mnt/s/LAStools/bin/lasgrid.exe -i ", tmpdir, "*.las -odir ", geodir, " -merged -o ", siteID, "_grid.tif -step ", tilesize, " -utm ", utmZone, " -counter_32bit")
   system(grid.cmd)
   
+  # Some checking to make sure all files were created:
+  orig <- length(lasfiles)
+  lastiles <- list.files(tmpdir, pattern="*.las$")
+  txttiles <- list.files(tiledir, pattern="*.txt$")
+  geotiles <- list.files(geodir, pattern="*.tif$", full.names=T)
+  
+  # First, make sure all lastiles were converted to txt files
+  val1 <- identical(unlist(strsplit(lastiles, "\\."))[1], unlist(strsplit(txttiles, "\\."))[1])
+  if (!val1) {
+    # if file mismatch, do not delete temp files:
+    rm.tmp <- "F"
+    warning("Mismatch between las tiles and txt tiles. Check files.")
+  }
   # Remove temp dir and merge.laz file
   if (rm.tmp == T) {
     unlink(paste0(lasdir, "/temp/"))
     file.remove(paste0(lasdir, "/merge.laz"))
   }
+  
+  return(list(orig, val1, geotiles))
 
 } # end las2tiles
+
+#################### Set up parameter file for extracting lidar points from within plots (for use with FUSION) #####################
+# SampleFile - Name for subsample file (extension will be added) or a text file containing 
+# sample information for 1 or more samples. Each line in the text file should have the subsample 
+# filename and the MinX MinY MaxX MaxY values for the sample area separated by spaces or commas. 
+# The output filename cannot contain spaces.
+# MinX MinY - Lower left corner of the sample area bounding box.
+# MaxX MaxY - Upper right corner of the sample area bounding box.
+
+# plotfile can be a point shapefile, a polygon shapefile, or a csv containing coordinates for plot centers (in UTM).
+# Name of LON and LAT columns must be 'x' and 'y' respectively.
+# listType is one of "points", "poly", "csv"
+# plotsize is technically an optional argument, but it must be supplied if the plots submitted are
+# points ("points" or "csv") (need to know how much to buffer them). plotsize should be specified as the radius of the plot.
+
+writePlotExtractParams <- function(plotfile, listType, outdir, outParamFile, plotsize=NULL) {
+  library(rgdal)
+  if (listType == "points" | listType == "csv" && is.null(plotsize)) {
+    stop("plotsize must be specified for points")
+  }
+  
+  if (listType == "points" | listType == "poly") {
+    plots <- readOGR(dirname(plotfile), layer=unlist(strsplit(basename(plotfile), "\\."))[1])
+  } else if (listType == "csv") {
+    plots <- read.csv(plotfile)
+    coords <- coordinates(plots$x, plots$y)
+  } else {
+    stop("plot file must be a point or polygon shapefile or a csv contaiing plot center coordinates")
+  }
+  
+} # end writePlotExtractParams
+
+# sample file name - windows format
+sf <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/model_training/lidar_in_plots/las/clipPlots_grndNormalized_params.txt"
+
+# outdir where normalized las files will be stored - windows format:
+outdir <- "A:\\tcormier\\SE_Asia\\Ellis_Paper\\model_training\\lidar_in_plots\\las\\grnd_normalized\\"
+
+# txt file of input las files - linux format
+lastxt <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/model_training/lidar_in_plots/las/allfiles_linuxPaths.txt"
+####################################
+# loop over files, get bounding coordinates, set output names, and write to sf (specified above)
+lasfiles <- as.vector(read.table(lastxt, sep=" ")[,1])
+#outdf <- as.data.frame(matrix(data=NA, ncol = 5, nrow=0))
+outvec <- vector()
+
+for (i in 1:length(lasfiles)) {
+  outfile <- paste0(outdir, unlist(strsplit(basename(lasfiles[i]), "\\."))[1], "_gn")
+  lasinfocmd <- paste0("/mnt/s/LAStools/bin/lasinfo ", lasfiles[i], " 2>&1")
+  lasinfo <- try(system(lasinfocmd, intern=T))
+  
+  # This assumes header info is ALWAYS uniform - check with new data!
+  minX <- unlist(strsplit(lasinfo[20], " "))[24]
+  minY <- unlist(strsplit(lasinfo[20], " "))[25]
+  maxX <- unlist(strsplit(lasinfo[21], " "))[24]
+  maxY <- unlist(strsplit(lasinfo[21], " "))[25]
+  
+  #outvec[i] <- paste(outfile, paste0("[", paste(minX, minY, maxX, maxY,sep=" "), "]"), sep=",")
+  outvec[i] <- paste(outfile, minX, minY, maxX, maxY)
+  
+}
+
+write.table(outvec,file=sf, quote = F, row.names = F, col.names=F)

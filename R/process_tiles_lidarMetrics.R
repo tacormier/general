@@ -7,8 +7,8 @@ source("/mnt/a/tcormier/scripts/general/R/handy_functions_TC.R")
 #######################################################################
 # Variables
 #indir <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/model_training/lidar_in_plots/txt/"
-indir <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/lidar/Sumalindo_west/Tiles_20m/"
-# indir <- "/mnt/a/tcormier/testing/"
+#indir <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/lidar/Sumalindo_west/Tiles_20m/"
+indir <- "/mnt/a/tcormier/testing/lidar_processing/windows/Tiles_20m/"
 tilesize <- 20 #in meters
 binsize <- 0.5 #vertical resolution of profile (m)
 min_ptden <- 6 #min CartoData = 8 ppm2; min SL Brazil = 4 ppm2
