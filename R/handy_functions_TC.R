@@ -828,65 +828,28 @@ las2tiles <- function(lasdir, tilesize, rawFormat='las', utmZone, siteID, rm.tmp
 
 } # end las2tiles
 
-#################### Set up parameter file for extracting lidar points from within plots (for use with FUSION) #####################
-# SampleFile - Name for subsample file (extension will be added) or a text file containing 
-# sample information for 1 or more samples. Each line in the text file should have the subsample 
-# filename and the MinX MinY MaxX MaxY values for the sample area separated by spaces or commas. 
-# The output filename cannot contain spaces.
-# MinX MinY - Lower left corner of the sample area bounding box.
-# MaxX MaxY - Upper right corner of the sample area bounding box.
+#################### Use FUSION to extract lidar data to [field plot] polygons #####################
+# This is a quick function to call the PolyClipData.exe tool from FUSION, a windows tool natively.
+# Here, we use wine to call it. There are some small idiosyncrasies to do with file paths - read on!
+#
+# The function uses polygons (usually representing field plots) as boundaries to extract lidar from a list
+# of las files. Usually followed by metrics calculation.
+#
+# This function requires a number of file paths, all which must have quad back slashes (yes, that's 4).
+#
+# polyPath is the filepath to the polygon file that will be used to extract lidar points 
+# (e.g. "\\\\mnt\\\\a\\\\tcormier\\\\SE_Asia\\\\Ellis_Paper\\\\field_plots\\\\SE_Asia_biomass0_10m_rad.shp"). 
+# fieldNum is the number of the field/column that contains the polygon identifier - usually a unique field (e.g., 1).
+# outBase is a \\\\path\\\\filename.las file path that will be used as the basename for the plot-level las files that
+# are generated. The function adds the value from fieldNum column to this base name. Must end in ".las" 
+# (e.g., "\\\\mnt\\\\a\\\\tcormier\\\\testing\\\\lidar_processing\\\\SE_Asia_biomass0_10m_rad.las)
+# lasList is a text file (must end in .txt) that contains a list of the file paths to the las files that will be extracted 
+# (e.g., "\\\\mnt\\\\a\\\\tcormier\\\\SE_Asia\\\\Ellis_Paper\\\\lidar\\\\las_all\\\\test.txt"). The files listed WITHIN the
+# lasList text file must have the following format, including the Z:\\ preceding any linux path: 
+# (e.g., "Z:\\mnt\\a\\tcormier\\SE_Asia\\Ellis_Paper\\lidar\\Meraang\\552_192.las").
 
-# plotfile can be a point shapefile, a polygon shapefile, or a csv containing coordinates for plot centers (in UTM).
-# Name of LON and LAT columns must be 'x' and 'y' respectively.
-# listType is one of "points", "poly", "csv"
-# plotsize is technically an optional argument, but it must be supplied if the plots submitted are
-# points ("points" or "csv") (need to know how much to buffer them). plotsize should be specified as the radius of the plot.
 
-writePlotExtractParams <- function(plotfile, listType, outdir, outParamFile, plotsize=NULL) {
-  library(rgdal)
-  if (listType == "points" | listType == "csv" && is.null(plotsize)) {
-    stop("plotsize must be specified for points")
-  }
-  
-  if (listType == "points" | listType == "poly") {
-    plots <- readOGR(dirname(plotfile), layer=unlist(strsplit(basename(plotfile), "\\."))[1])
-  } else if (listType == "csv") {
-    plots <- read.csv(plotfile)
-    coords <- coordinates(plots$x, plots$y)
-  } else {
-    stop("plot file must be a point or polygon shapefile or a csv contaiing plot center coordinates")
-  }
-  
-} # end writePlotExtractParams
-
-# sample file name - windows format
-sf <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/model_training/lidar_in_plots/las/clipPlots_grndNormalized_params.txt"
-
-# outdir where normalized las files will be stored - windows format:
-outdir <- "A:\\tcormier\\SE_Asia\\Ellis_Paper\\model_training\\lidar_in_plots\\las\\grnd_normalized\\"
-
-# txt file of input las files - linux format
-lastxt <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/model_training/lidar_in_plots/las/allfiles_linuxPaths.txt"
-####################################
-# loop over files, get bounding coordinates, set output names, and write to sf (specified above)
-lasfiles <- as.vector(read.table(lastxt, sep=" ")[,1])
-#outdf <- as.data.frame(matrix(data=NA, ncol = 5, nrow=0))
-outvec <- vector()
-
-for (i in 1:length(lasfiles)) {
-  outfile <- paste0(outdir, unlist(strsplit(basename(lasfiles[i]), "\\."))[1], "_gn")
-  lasinfocmd <- paste0("/mnt/s/LAStools/bin/lasinfo ", lasfiles[i], " 2>&1")
-  lasinfo <- try(system(lasinfocmd, intern=T))
-  
-  # This assumes header info is ALWAYS uniform - check with new data!
-  minX <- unlist(strsplit(lasinfo[20], " "))[24]
-  minY <- unlist(strsplit(lasinfo[20], " "))[25]
-  maxX <- unlist(strsplit(lasinfo[21], " "))[24]
-  maxY <- unlist(strsplit(lasinfo[21], " "))[25]
-  
-  #outvec[i] <- paste(outfile, paste0("[", paste(minX, minY, maxX, maxY,sep=" "), "]"), sep=",")
-  outvec[i] <- paste(outfile, minX, minY, maxX, maxY)
-  
-}
-
-write.table(outvec,file=sf, quote = F, row.names = F, col.names=F)
+FUSION_polyclipdata <- function(polyPath, fieldNum, outBase, lasList) {
+  polyclip.cmd <- paste0("/usr/bin/wine \\\\mnt\\\\a\\\\tcormier\\\\FUSION\\\\PolyClipData.exe /multifile /shape:", fieldNum, ",* ", polyPath, " ", outBase, " ", lasList)
+  system(polyclip.cmd)
+} # end FUSION_polyclipdata
