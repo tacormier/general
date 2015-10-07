@@ -6,39 +6,49 @@ source("/mnt/a/tcormier/scripts/general/R/handy_functions_TC.R")
 
 #######################################################################
 # Variables
-#indir <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/model_training/lidar_in_plots/txt/"
+indir <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/extract_20150918/txt/"
 #indir <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/lidar/Sumalindo_west/Tiles_20m/"
-indir <- "/mnt/a/tcormier/testing/lidar_processing/windows/Tiles_20m/"
-tilesize <- 20 #in meters
+#indir <- "/mnt/a/tcormier/testing/lidar_processing/windows/Tiles_20m/"
+tilesize <- 112 #in meters
 binsize <- 0.5 #vertical resolution of profile (m)
-min_ptden <- 6 #min CartoData = 8 ppm2; min SL Brazil = 4 ppm2
-vegflag <- "T" #(T/F): vegetation returns classified?
+min_ptden <- 8 #min CartoData = 8 ppm2; min SL Brazil = 4 ppm2
+vegflag <- "F" #(T/F): vegetation returns classified?
 # Values for flagging bad points or tiles - based on field data or expert knowledge
-max.height <- 82
-min.height <- -3
-dtm.file <- "/mnt/a/fgoncalves/Mexico/dtm_mosaic.tif"
+max.height <- 150
+min.height <- -6
 # do you want to save the profile so you don't have to calc again?
-# Usually yes for plot profiles
+# Usually yes for plot profiles. Will save to indir/profiles
 saveprof <- "Y"
+
+# regions
+regions <- c("Campeche_Yucatan", "Chiapas", "Chihuahua", "Jalisco", "Oaxaca1", "Oaxaca2", "Oaxaca3")
+#dtm.file <- "/mnt/a/fgoncalves/Mexico/dtm_mosaic.tif"
 #dtm.file <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/lidar/DTM_all/DTM_Ellis/se_asia_dtm.vrt"
 # dtm.file <- "/Volumes/share-2/fgoncalves/Mexico/dtm_mosaic.tif"
+dtmlist <-"/mnt/a/tcormier/Mexico_CMS/lidar/DTMs/lists/cartodata_dtm_vrt_list.txt"
 #######################################################################
-dtm <- raster(dtm.file)
+dtms <- scan(dtmlist, what="character")
+# as long as "regions" are listed in the same order as the dtms in dtmlist, this 
+# will work - otherwise, need to do some matching based on region - keeping it
+# simple for the moment!
+dtminfo <- data.frame(region=regions, dtm=dtms, stringsAsFactors = F)
+
+# dtm <- raster(dtm.file)
 
 
 #get filenames and coordinates (lower-left corner of the tiles)
 lasfiles <- list.files(indir, pattern="\\.txt", full.names=T)
 dummy <- sub(".txt", "", basename(lasfiles))
 #dummy <- basename(dummy)
-dummy <- lapply(strsplit(dummy, "_"), rev)
-xcor <- as.numeric(sapply(dummy, "[", 2))
-ycor <- as.numeric(sapply(dummy, "[", 1))
+# dummy <- lapply(strsplit(dummy, "_"), rev)
+# xcor <- as.numeric(sapply(dummy, "[", 2))
+# ycor <- as.numeric(sapply(dummy, "[", 1))
 # plot(xcor,ycor)
 
 #process each tile
 # if xcor and ycor are not in file names
-# xcor <- vector()
-# ycor <- vector()
+xcor <- vector()
+ycor <- vector()
   
 #define metrics, etc
 dummyn <- paste0("ptden_lt", min_ptden)
@@ -57,19 +67,28 @@ trad <- array(NA, c(length(lasfiles), 10))
 #loop
 for (p in 1:length(lasfiles)) {
   print(paste0("calculating metrics for file ", p, " of ", length(lasfiles)))
+  # big cluster to sort out which dtm (all different UTM zones, so not mosaicked - 
+  # solve this later??)
+  
+  # lasdata file - pull out region
+  lf <- basename(lasfiles[p])
+  lf.region <- unlist(strsplit(lf, "_"))[1]
+  dtm.region <- dtminfo$dtm[pmatch(lf.region,dtminfo$region)]
+  dtm <- raster(dtm.region)
+  
   lasdata <- read.csv(lasfiles[p], header=F, col.names=c("x","y","z","i","a","n","r","c"))
   # This xcor/ycor calc is only if that info is not in the lasfile file name
-#   xcor[p] <- min(lasdata$x)
-#   ycor[p] <- min(lasdata$y)
+  xcor[p] <- min(lasdata$x)
+  ycor[p] <- min(lasdata$y)
 
   #tile quality check
   if (!(2 %in% lasdata$c)) {log[p,1] <- 1} #warning("No ground return")
-  dummy <- c(3,4,5) %in% lasdata$c
+    dummy <- c(3,4,5) %in% lasdata$c
   if (vegflag == "T") {
     if (sum(dummy+0) == 0) {log[p,2] <- 1} #warning("No vegetation return")
   }
   wlen <- max(lasdata$z-min(lasdata$z))
-  if (wlen > 60) {log[p,3] <- 1; log[p,4] <- wlen} #warning(paste0("Waveform length = ", wlen, " m"))
+  #if (wlen > 60) {log[p,3] <- 1; log[p,4] <- wlen} #warning(paste0("Waveform length = ", wlen, " m"))
   
   #get point density
   ptden[p] <- nrow(lasdata)/(tilesize^2)
@@ -94,13 +113,16 @@ for (p in 1:length(lasfiles)) {
   ##################################
   log[p,5] <- log.val5
   
-  # More tile quality flagging now that profile is completed:
+   # More tile quality flagging now that profile is completed:
   if (fgt > 1) {log[p,8] <- 1; log[p,9] <- fgt} #warning("More than 1% of normalized heights > 82 m")
   if (fltm > 1) {log[p,10] <- 1; log[p,11] <- fltm} #warning("More than 1% of normalized heights < -3 m")
   
   # move to next tile if there is no ground or vegetation return, or 
   # if more than 1% of the normalizd heights are outliers
-  if (sum(log[p, c(1,2,8,10)]) >= 1) next()
+  if (sum(log[p, c(1,2,8,10)]) >= 1) {
+    print(paste0(lasfiles[p], " has no ground or vegetation return."))
+    next()
+  }
   
   #extract metrics from profile
   prof_a <- profile$counts
@@ -110,10 +132,12 @@ for (p in 1:length(lasfiles)) {
       nh <- length(prof_h)
       integ <- array(NA, nh)
       for (j in 1:nf) { #loop over frequencies
-        for (i in 1:nh) integ[i] <- exp(2 * pi * 1i * freq[j] * prof_h[i]) * prof_a[i] #loop over height bins to calc fourier integrand
+        for (i in 1:nh) {
+        integ[i] <- exp(2 * pi * 1i * freq[j] * prof_h[i]) * prof_a[i] #loop over height bins to calc fourier integrand
         fourier <- sum(integ) / sum(prof_a)
         amp[p,j] <- Mod(fourier) #amplitude
         pha[p,j] <- Arg(fourier) #wrapped phase
+        }
       }
     
     #traditional
@@ -147,8 +171,10 @@ for (p in 1:length(lasfiles)) {
 }
 
 #unwrap phase
-pha_unw <- pha/NA
-for (pp in 1:nrow(pha)) pha_unw[pp,] <- unwrap(as.numeric(pha[pp,]))
+pha_unw <- as.data.frame(pha/NA)
+for (pp in 1:nrow(pha)) {
+  pha_unw[pp,] <- unwrap(as.numeric(pha[pp,]))
+}
 
 #remove extra freqs
 freq30 <- seq(.01, .3, by=.01)

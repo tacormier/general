@@ -31,8 +31,12 @@ makeprof <- function(lasdata, res, dtm=NULL, max.height=NULL, min.height) {
   
   #remove topography using DTMs if one is specified
   if (!is.null(dtm)) {
+    print("extracting DTM values. . .")
+    pt <- proc.time()
     ptground <- extract(dtm, lasdata[,1:2])
     naid2 <- which(is.na(ptground))
+    print(paste0("DTM extraction complete in ", round(proc.time()[1]+proc.time()[2] - pt[1] - pt[2], digits=4), " seconds."))
+    
     
     # remove rows where z=NA after extracting, then subtract DTM 
     # (i.e. where DTM = NA)
@@ -186,7 +190,7 @@ plotWaveform <- function(waveformDF, nameHeightCol, nameCountCol, smoothFactor=0
     #                            gp=gpar(col="gray16")))
     #     p <- p + annotation_custom(gtxt, size=1.5)
     
-    p <- p + annotate("text",x=max(xlim),y=min(wave$height),hjust=1.0,vjust=.1,label=leg.txt, size=2.75)
+    p <- p + annotate("text",x=max(xlim),y=min(wave$height)+5,hjust=1.0,vjust=.1,label=leg.txt, size=5)
   } #end annotation if
   
   return(p)
@@ -850,8 +854,8 @@ las2tiles <- function(lasdir, tilesize, rawFormat='las', utmZone, siteID, rm.tmp
 
 
 FUSION_polyclipdata <- function(polyPath, fieldNum, outBase, lasList) {
-  # polyclip.cmd <- paste0("/usr/bin/wine \\\\mnt\\\\a\\\\tcormier\\\\FUSION\\\\PolyClipData.exe /multifile /shape:", fieldNum, ",* ", polyPath, " ", outBase, " ", lasList)
-  polyclip.cmd <- paste0("/usr/bin/wine \\\\mnt\\\\a\\\\tcormier\\\\FUSION\\\\PolyClipData.exe /shape:", fieldNum, ",* ", polyPath, " ", outBase, " ", lasList)
+  polyclip.cmd <- paste0("/usr/bin/wine \\\\mnt\\\\a\\\\tcormier\\\\FUSION\\\\PolyClipData.exe /multifile /shape:", fieldNum, ",* ", polyPath, " ", outBase, " ", lasList)
+  # polyclip.cmd <- paste0("/usr/bin/wine \\\\mnt\\\\a\\\\tcormier\\\\FUSION\\\\PolyClipData.exe /shape:", fieldNum, ",* ", polyPath, " ", outBase, " ", lasList)
   system(polyclip.cmd)
 } # end FUSION_polyclipdata
 
