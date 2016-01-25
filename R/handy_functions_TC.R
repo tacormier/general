@@ -163,7 +163,7 @@ plotWaveform <- function(waveformDF, nameHeightCol, nameCountCol, smoothFactor=0
   
     p <- ggplot(wave, aes(counts, height)) + ylim(ylim) + xlim(xlim) + geom_point()  + geom_path(data=sm.line, col="chartreuse4", size=0.5) + 
       theme_bw() + theme(legend.position="none") 
-    
+    # col="darkgray"
     # to include points too!
     #+ geom_point(size=1.5) 
   
@@ -294,6 +294,9 @@ writeMDDB_multPlotsPerPixel <- function(inImg, predNames, inPlot, xcol, ycol, ou
   ext <- unlist(strsplit(inPlot, "\\."))[2]
   if (ext == "csv" | ext == "CSV") {
     vec <- read.csv(inPlot)
+    coords <- as.data.frame(cbind(vec[[xcol]], vec[[ycol]]))
+    names(coords) <- c("LON", "LAT")
+    vec <- SpatialPointsDataFrame(coords, vec, proj4string = CRS(proj.in))
   } else if (ext == "shp" & pp == "points") {
     vec <- readOGR(dirname(inPlot), unlist(strsplit(basename(inPlot), "\\."))[1])
     coords <- as.data.frame(cbind(vec[[xcol]], vec[[ycol]]))
@@ -457,6 +460,9 @@ writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, 
   ext <- unlist(strsplit(inPlot, "\\."))[2]
   if (ext == "csv" | ext == "CSV") {
     vec <- read.csv(inPlot)
+    coords <- as.data.frame(cbind(vec[[xcol]], vec[[ycol]]))
+    names(coords) <- c("LON", "LAT")
+    vec <- SpatialPointsDataFrame(coords, vec, proj4string = CRS(proj.in))
   } else if (ext == "shp" & pp == "points") {
     vec <- readOGR(dirname(inPlot), unlist(strsplit(basename(inPlot), "\\."))[1])
     coords <- as.data.frame(cbind(vec[[xcol]], vec[[ycol]]))
@@ -854,7 +860,7 @@ las2tiles <- function(lasdir, tilesize, rawFormat='las', utmZone, siteID, rm.tmp
 
 
 FUSION_polyclipdata <- function(polyPath, fieldNum, outBase, lasList) {
-  polyclip.cmd <- paste0("/usr/bin/wine \\\\mnt\\\\a\\\\tcormier\\\\FUSION\\\\PolyClipData.exe /multifile /shape:", fieldNum, ",* ", polyPath, " ", outBase, " ", lasList)
+  polyclip.cmd <- paste0("/usr/bin/wine \\\\mnt\\\\a\\\\tcormier\\\\FUSION2\\\\PolyClipData.exe /multifile /shape:", fieldNum, ",* ", polyPath, " ", outBase, " ", lasList)
   # polyclip.cmd <- paste0("/usr/bin/wine \\\\mnt\\\\a\\\\tcormier\\\\FUSION\\\\PolyClipData.exe /shape:", fieldNum, ",* ", polyPath, " ", outBase, " ", lasList)
   system(polyclip.cmd)
 } # end FUSION_polyclipdata
