@@ -17,9 +17,10 @@ Sys.setenv(SGE_CELL="Grid-Cell-01")
 # So this table is a list of shapefiles and the accompanying las indices.
 
 # Example file: /mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/FUSION_extractPlots_params/extract_infys_20150918.csv
-paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/FUSION_extractPlots_params/extract_infys_20150918.csv"
+paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/G-LiHT/field_lidar_intersect/FUSION_extractPlots_params_20151110/G-LiHT_params_20151110.csv"
 # 
-outdir <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/extract_20150918/"
+outdir <- "/mnt/a/tcormier/Mexico_CMS/lidar/G-LiHT/field_lidar_intersect/"
+
 # Do the laslists need to be reformated to run windows tool with wine? (see function documentation)? Y or N?
 reform <- 'Y'
 
@@ -51,22 +52,34 @@ for (p in (1:length(params$polyPath))) {
   # strip ".shp" from paths
   li <- unlist(str_split(params$lasindex[p], "\\."))[1]
   ps <- unlist(str_split(params$polyPath[p], "\\."))[1]
+  id.col <- unlist(str_split(params$ID_field_num[p], "\\."))[1]
   # open the two shapefiles
   lasindex <- readOGR(dirname(li), basename(li))
-  plots <- readOGR(dirname(ps), basename(ps))
+  plots.all <- readOGR(dirname(ps), basename(ps))
   
-  #test <- raster::intersect(lasindex, plots)
+  # We only want to work with plots that intersect the lasfiles we have in the index, not
+  # the whole shapefile of potentially thousands of plots.
+  plotsInLas <- over(lasindex, plots.all)
+  # plotsInLas results in a simple dataframe, not a spatial object. Need to
+  # just pull the identified plots from the shapefile
+  plots <- plots.all[plots.all@data$FOLIO %in% plotsInLas$FOLIO,]
   
   # loop over each plot
   for (pl in (1:nrow(plots))) {
     p.indiv <- plots[pl,]
-    id <- as.character(p.indiv@data$FOLIO)
+    #id <- as.character(p.indiv@data$FOLIO)
+    id <- as.character(p.indiv@data[,params$ID_field_num[1]])
     newfile <- paste0(tmpdir,basename(ps), "_", id, ".shp")
     newoutbase <- paste0(outdir, basename(ps), ".las")
     
-    writeOGR(p.indiv, tmpdir, paste0(basename(ps), "_", id), driver="ESRI Shapefile", check_exists = T, overwrite_layer = T)
     # now intersect plot with las index to see which lasfiles we need
     intras <- raster::intersect(lasindex, p.indiv)
+    
+    # If the plot does not intersect the las file, skip to the next plot (this is only necessary if you haven't intersected the
+    # plots with the lasindex)
+    if (is.null(intras)) next()
+    
+    writeOGR(p.indiv, tmpdir, paste0(basename(ps), "_", id), driver="ESRI Shapefile", check_exists = T, overwrite_layer = T)
     
     # Now write list of intersection las files to new laslist
     laslist <- intras@data$location
