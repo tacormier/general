@@ -72,7 +72,7 @@ for (p in (1:length(params$polyPath))) {
     p.indiv <- plots[pl,]
     #id <- as.character(p.indiv@data$FOLIO)
     id <- as.character(p.indiv@data[,params$ID_field_num[1]])
-    newfile <- paste0(tmpdir,basename(li), "_extract_", id, ".shp")
+    newfile <- paste0(tmpdir,basename(ps), "_", id, ".shp")
     newoutbase <- paste0(outdir, basename(li), ".las")
     
     # now intersect plot with las index to see which lasfiles we need
@@ -82,7 +82,7 @@ for (p in (1:length(params$polyPath))) {
     # plots with the lasindex)
     if (is.null(intras)) next()
     
-    writeOGR(p.indiv, tmpdir, paste0(basename(li), "_", id), driver="ESRI Shapefile", check_exists = T, overwrite_layer = T)
+    writeOGR(p.indiv, tmpdir, paste0(basename(ps), "_", id), driver="ESRI Shapefile", check_exists = T, overwrite_layer = T)
     
     # Now write list of intersection las files to new laslist
     laslist <- intras@data$location
@@ -109,7 +109,7 @@ for (p in (1:length(params$polyPath))) {
     }# end reform if
     
     # Submit job to cluster
-    jobname <- unlist(strsplit(basename(param.indiv$polyPath), "\\."))[1]
+    jobname <- paste0(unlist(strsplit(basename(newoutbase), "\\."))[1], "_", id)
     sys.call <- paste("/net/share-2/export/HomeDir/sge6.2/bin/lx24-amd64/qsub -b yes -q nondev.q -V -N", jobname, "-l rdisk=2G", "-o",QLOG, "-e", QLOG, 
                       "/mnt/s/bin/jqsub 'R --vanilla --slave < /mnt/a/tcormier/scripts/general/R/FUSION_extractPlots.R' --args", 
                       param.indiv$polyPath[1], param.indiv$ID_field_num[1], param.indiv$lasindex[1], param.indiv$outBase[1])
