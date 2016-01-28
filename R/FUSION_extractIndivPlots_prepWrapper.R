@@ -1,6 +1,5 @@
-# This script calls the FUSION_polyclipdata function from 
-# ***When you have time...REORGANIZE this a bit such that it submits each line of the param file as
-# a job to the cluster.
+# This script calls the /mnt/a/tcormier/scripts/general/R/FUSION_extractPlots.R and submits each plot 
+# from each polygon file in paramfile to the cluster as a separate job.
 #
 library(rgdal)
 library(raster)
@@ -17,9 +16,11 @@ Sys.setenv(SGE_CELL="Grid-Cell-01")
 # So this table is a list of shapefiles and the accompanying las indices.
 
 # Example file: /mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/FUSION_extractPlots_params/extract_infys_20150918.csv
-paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/G-LiHT/field_lidar_intersect/FUSION_extractPlots_params_20151110/G-LiHT_params_20151110.csv"
+# paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/G-LiHT/field_lidar_intersect/FUSION_extractPlots_params_20151110/G-LiHT_params_20151110.csv"
+paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/FUSION_extractPlots_params/extract_infys_20160127_forSG.csv"
 # 
-outdir <- "/mnt/a/tcormier/Mexico_CMS/lidar/G-LiHT/field_lidar_intersect/"
+# outdir <- "/mnt/a/tcormier/Mexico_CMS/lidar/G-LiHT/field_lidar_intersect/" Does not need to exist.
+outdir <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/extract_20160128_forSG/"
 
 # Do the laslists need to be reformated to run windows tool with wine? (see function documentation)? Y or N?
 reform <- 'Y'
@@ -27,7 +28,7 @@ reform <- 'Y'
 # Delete tmpdir Y/N? tmpdir is created to hold all of the individual, plot-specific files. 
 deltmp <- 'N'
 
-#where do you want to store the qsub logs? Directory.
+#where do you want to store the qsub logs? Directory. Does not have to exist already.
 QLOG <- "/mnt/a/tcormier/scripts/logs/CMS_lidarExtract/"
 
 ##########################################
@@ -35,7 +36,8 @@ dir.create(QLOG, showWarnings = F)
 
 # open param file, do some formatting and set up loop
 params <- read.csv(paramfile, stringsAsFactors = F)
-params$outBase <- paste0(outdir, basename(params$polyPath))
+params$outBase <- paste0(outdir, basename(params$lasindex))
+# params$outBase <- paste0(outdir, basename(params$polyPath))
 params$outBase <- gsub(".shp", ".las", params$outBase)
 dir.create(outdir)
 
@@ -48,6 +50,7 @@ dir.create(outdir)
 tmpdir <- paste0(outdir, "tmp_indivPlots/")
 dir.create(tmpdir)
 
+# Loop over each shapefile
 for (p in (1:length(params$polyPath))) {
   # strip ".shp" from paths
   li <- unlist(str_split(params$lasindex[p], "\\."))[1]
@@ -69,8 +72,8 @@ for (p in (1:length(params$polyPath))) {
     p.indiv <- plots[pl,]
     #id <- as.character(p.indiv@data$FOLIO)
     id <- as.character(p.indiv@data[,params$ID_field_num[1]])
-    newfile <- paste0(tmpdir,basename(ps), "_", id, ".shp")
-    newoutbase <- paste0(outdir, basename(ps), ".las")
+    newfile <- paste0(tmpdir,basename(li), "_extract_", id, ".shp")
+    newoutbase <- paste0(outdir, basename(li), ".las")
     
     # now intersect plot with las index to see which lasfiles we need
     intras <- raster::intersect(lasindex, p.indiv)
@@ -79,7 +82,7 @@ for (p in (1:length(params$polyPath))) {
     # plots with the lasindex)
     if (is.null(intras)) next()
     
-    writeOGR(p.indiv, tmpdir, paste0(basename(ps), "_", id), driver="ESRI Shapefile", check_exists = T, overwrite_layer = T)
+    writeOGR(p.indiv, tmpdir, paste0(basename(li), "_", id), driver="ESRI Shapefile", check_exists = T, overwrite_layer = T)
     
     # Now write list of intersection las files to new laslist
     laslist <- intras@data$location
