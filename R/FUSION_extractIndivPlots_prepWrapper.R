@@ -4,6 +4,7 @@
 library(rgdal)
 library(raster)
 library(rgeos)
+library(maptools)
 library(stringr)
 source("/mnt/a/tcormier/scripts/general/R/handy_functions_TC.R")
 
@@ -19,6 +20,9 @@ Sys.setenv(SGE_CELL="Grid-Cell-01")
 # paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/G-LiHT/field_lidar_intersect/FUSION_extractPlots_params_20151110/G-LiHT_params_20151110.csv"
 paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/FUSION_extractPlots_params/extract_infys_20160127_forSG.csv"
 # 
+# Minimum area of lidar coverage within plot (as a percentage)
+min.area <- 99.9
+
 # outdir <- "/mnt/a/tcormier/Mexico_CMS/lidar/G-LiHT/field_lidar_intersect/" Does not need to exist.
 outdir <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/extract_20160128_forSG/"
 
@@ -59,21 +63,61 @@ for (p in (1:length(params$polyPath))) {
   # open the two shapefiles
   lasindex <- readOGR(dirname(li), basename(li))
   plots.all <- readOGR(dirname(ps), basename(ps))
+  colname.id <- colnames(plots.all@data)[as.numeric(id.col)]
   
   # We only want to work with plots that intersect the lasfiles we have in the index, not
   # the whole shapefile of potentially thousands of plots.
-  plotsInLas <- over(lasindex, plots.all)
-  # plotsInLas results in a simple dataframe, not a spatial object. Need to
-  # just pull the identified plots from the shapefile
-  plots <- plots.all[plots.all@data$FOLIO %in% plotsInLas$FOLIO,]
+  # plotsInLas <- over(lasindex, plots.all)
+  plotsInLas <- raster::intersect(lasindex, plots.all)
+  
+  # If plots are on the edges of lastiles (i.e. the entire plot area is not fully covered by lidar data, whether by one lastile or with multiple),
+  # we need to exclude them. So, first dissolve polygons with the same ID (plots in las - dissolved = pid).
+  pid <- gUnaryUnion(plotsInLas, id = plotsInLas@data[[colname.id]])
+  
+  # Now calculate the area of each intersected/dissolved polygon and compare it with the origin plot size (did any of it get cut off? Is any of it
+  # outside the lidar coverage?)
+  # Extract areas from polygon objects then attach as attribute
+  areas <- data.frame(area=sapply(pid@polygons, FUN=function(x) {slot(x, 'area')}))
+  row.names(areas) <- sapply(pid@polygons, FUN=function(x) {slot(x, 'ID')})
+  areas$pid_ID <- row.names(areas)
+
+  # Now let's look at the original plots (not clipped/intersected) that were identified as overlapping
+  # the lidar and compare the area of each plot with the area of the intersected plot. If intersected plot is
+  # less, then we don't have full lidar coverage for that plot.
+  plots <- plots.all[plots.all@data[[colname.id]] %in% plotsInLas[[colname.id]],]
+  areaInt <- areas[match(plots@data[[colname.id]], row.names(areas)),]
+  # Manual check - do IDs match up? Can code this as an automatic check later.
+  areaInt <- cbind(areaInt, orig_ID=plots@data[[colname.id]])
+  
+  # Now get areas of original plots
+  p.areas <- data.frame(area=sapply(plots@polygons, FUN=function(x) {slot(x, 'area')}))
+  row.names(p.areas) <- sapply(plots@polygons, FUN=function(x) {slot(x, 'ID')})
+  # Combine attributes info and areas 
+  plots <- spCbind(plots, p.areas)
+  areaInt <- cbind(areaInt, orig_area=plots@data$area)
+  areaInt$area_diff <- round((areaInt$orig_area - areaInt$area), 2)
+  
+  # ID incompletely covered plots (% coverage is less than min.area)
+  areaInt$perc_cov <- round((areaInt$area/areaInt$orig_area)*100,2)
+  
+  # Now remove plots < min.area - LEFT OFF HERE 20160129
+  plots.complete <- plots[plots@data[[colname.id]] %in% areaInt$pid_ID[areaInt$perc_cov >= min.area],]
+ 
+  # ****Also write shapefile of excluded plots - for manual checking that everything is going as expected.
+  inc.pos <- !(plots@data[[colname.id]] %in% areaInt$pid_ID[areaInt$perc_cov >= min.area])
+  if (TRUE %in% inc.pos) {
+    plots.incomplete <- plots[!(plots@data[[colname.id]] %in% areaInt$pid_ID[areaInt$perc_cov >= min.area]),]
+    writeOGR(plots.incomplete, dsn = "/mnt/a/tcormier/testing/incomplete_plots/", layer = paste0("incomplete_plots_", basename(li)), driver = "ESRI Shapefile", overwrite_layer = T)
+  }
+  writeOGR(plots.complete, dsn = "/mnt/a/tcormier/testing/complete_plots/", layer = paste0("complete_plots_", basename(li)) , driver = "ESRI Shapefile", overwrite_layer = T)
   
   # loop over each plot
-  for (pl in (1:nrow(plots))) {
-    p.indiv <- plots[pl,]
-    #id <- as.character(p.indiv@data$FOLIO)
-    id <- as.character(p.indiv@data[,params$ID_field_num[1]])
+  for (pl in (1:nrow(plots.complete))) {
+    p.indiv <- plots.complete[pl,]
+    #id <- as.character(p.indiv@data[[colname.id]])
+    id <- as.character(p.indiv@data[,params$ID_field_num[p]])
     newfile <- paste0(tmpdir,basename(ps), "_", id, ".shp")
-    newoutbase <- paste0(outdir, basename(li), ".las")
+    newoutbase <- paste0(outdir, basename(li), "_", id, ".las")
     
     # now intersect plot with las index to see which lasfiles we need
     intras <- raster::intersect(lasindex, p.indiv)
