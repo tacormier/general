@@ -860,8 +860,8 @@ las2tiles <- function(lasdir, tilesize, rawFormat='las', utmZone, siteID, rm.tmp
 
 
 FUSION_polyclipdata <- function(polyPath, fieldNum, outBase, lasList) {
-  polyclip.cmd <- paste0("/usr/bin/wine \\\\mnt\\\\a\\\\tcormier\\\\FUSION2\\\\PolyClipData.exe /multifile /shape:", fieldNum, ",* ", polyPath, " ", outBase, " ", lasList)
-  # polyclip.cmd <- paste0("/usr/bin/wine \\\\mnt\\\\a\\\\tcormier\\\\FUSION\\\\PolyClipData.exe /shape:", fieldNum, ",* ", polyPath, " ", outBase, " ", lasList)
+  polyclip.cmd <- paste0("/usr/bin/wine \\\\mnt\\\\a\\\\tcormier\\\\FUSION2\\\\PolyClipData.exe /shape:", fieldNum, ",* ", polyPath, " ", outBase, " ", lasList)
+  # polyclip.cmd <- paste0("/usr/bin/wine \\\\mnt\\\\a\\\\tcormier\\\\FUSION2\\\\PolyClipData.exe /multifile /shape:", fieldNum, ",* ", polyPath, " ", outBase, " ", lasList)
   system(polyclip.cmd)
 } # end FUSION_polyclipdata
 
