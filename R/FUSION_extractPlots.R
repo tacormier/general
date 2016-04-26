@@ -1,4 +1,5 @@
 # This script calls the FUSION_polyclipdata function from handy_functions.
+library(rgdal)
 
 source("/mnt/a/tcormier/scripts/general/R/handy_functions_TC.R")
 

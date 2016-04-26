@@ -18,13 +18,13 @@ Sys.setenv(SGE_CELL="Grid-Cell-01")
 
 # Example file: /mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/FUSION_extractPlots_params/extract_infys_20150918.csv
 # paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/G-LiHT/field_lidar_intersect/FUSION_extractPlots_params_20151110/G-LiHT_params_20151110.csv"
-paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/FUSION_extractPlots_params/extract_infys_20160127_forSG.csv"
+paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/FUSION_extractPlots_params/extract_workshopArea_20160401.csv"
 # 
 # Minimum area of lidar coverage within plot (as a percentage)
-min.area <- 99.9
+min.area <- 95
 
 # outdir <- "/mnt/a/tcormier/Mexico_CMS/lidar/G-LiHT/field_lidar_intersect/" Does not need to exist.
-outdir <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/extract_20160128_forSG/"
+outdir <- "/mnt/a/tcormier/Mexico_CMS/workshops/Mexico_lidar_201604/lidar/SampleData/"
 
 # Do the laslists need to be reformated to run windows tool with wine? (see function documentation)? Y or N?
 reform <- 'Y'
