@@ -877,18 +877,20 @@ FUSION_polyclipdata <- function(polyPath, fieldNum, outBase, lasList) {
 # Requires raster, rgdal, parallel
 
 # test <- raster("/mnt/r/Mex_Lidar/Cartodata/Cutzamala/Deliverables/Mosaics/DTM.tif")
-# test <- raster("/mnt/r/Mex_Lidar/Cartodata/Oaxaca3/Deliverables/Mosaics/TNC_OAX3_DTM.tif")
+# # test <- raster("/mnt/r/Mex_Lidar/Cartodata/Oaxaca3/Deliverables/Mosaics/TNC_OAX3_DTM.tif")
 # ras <- test
-# outpoly <- "/mnt/a/tcormier/testing/junk_Oaxaca3_grnd.shp"
+# # outpoly <- "/mnt/a/tcormier/testing/junk_Oaxaca3_grnd.shp"
+# outpoly <- "/mnt/a/tcormier/testing/junk_cutzamala_grnd.shp"
+
 imageCoverage <- function(ras, outpoly, parallel=T) {
   library(raster)
   library(rgdal)
   library(parallel)
 
 # Took 2.65 minutes on Cutzamala 
-#   p.1 <- proc.time()
-#   m2 <- mask(ras, ras, inverse=T, updatevalue=1)
-#   print(paste0("Masking complete in ", round(proc.time()[1]+proc.time()[2] - p.1[1] - p.1[2], digits=4), " seconds."))
+  # p.1 <- proc.time()
+  # m2 <- mask(ras, ras, inverse=T, updatevalue=1)
+  # print(paste0("Masking complete in ", round(proc.time()[1]+proc.time()[2] - p.1[1] - p.1[2], digits=4), " seconds."))
   
   # Took 2.55 minutes
 #   p.2 <- proc.time()
@@ -918,22 +920,23 @@ imageCoverage <- function(ras, outpoly, parallel=T) {
   } # end parallel YN and clusterR safeguard if/else
 
   # Convert to polygon - takes forever
-  # system.time(ras2poly <- rasterToPolygons(calc1, dissolve=T))
+#   system.time(ras2poly <- rasterToPolygons(calc1, dissolve=T))
   
   # using gdal
   writeRaster(calc1, {f <- tempfile(fileext='.tif')})
   rastpath <- normalizePath(f)
   poly.cmd <- sprintf("/mnt/s/gdal-2.0.0/bin/gdal_polygonize.py %s -f 'ESRI Shapefile' %s", f, outpoly)
+  # poly.cmd <- sprintf("/mnt/s/gdal-2.0.0/bin/gdal_polygonize.py %s -f PostgreSQL PG:\"host='fusion' port='5433' dbname='tcormier' user='tcormier' password='6yhn6yhn'\" %s", f, "junk_cutzamala_grnd")
   path.orig <- Sys.getenv("PATH")
   Sys.setenv(PATH = "/mnt/s/python-2.7.6/bin")
   system(poly.cmd)
   Sys.setenv(PATH = path.orig)
   
-  system.time(x <- rasterToPolygons(calc1))
+  # system.time(x <- rasterToPolygons(calc1))
 
-  ret.poly <- readOGR(dirname(outpoly), unlist(strsplit(basename(outpoly), "\\."))[1])
-  writeOGR(ret.poly, dirname(outpoly), unlist(strsplit(basename(outpoly), "\\."))[1], overwrite=T, driver = "ESRI Shapefile")
-  return(ret.poly)
+  # ret.poly <- readOGR(dirname(outpoly), unlist(strsplit(basename(outpoly), "\\."))[1])
+  # writeOGR(ret.poly, dirname(outpoly), unlist(strsplit(basename(outpoly), "\\."))[1], overwrite=T, driver = "ESRI Shapefile")
+  # return(ret.poly)
   
 } # End imageCoverage function
 
@@ -957,14 +960,19 @@ imageCoverage <- function(ras, outpoly, parallel=T) {
 # Requires rgdal and raster
 
 # TRY DIFFERENT TEST SHAPEFILES
-# grndCoveragePoly <- readOGR("/mnt/a/tcormier/testing/", "junk", stringsAsFactors = F)
-grndCoveragePoly <- readOGR(dirname(outpoly), unlist(strsplit(basename(outpoly), "\\."))[1])
-# grndCoveragePoly <- readOGR("/mnt/a/tcormier/testing/", "Cartodata_coverage_all_itrf93_UTM15N", stringsAsFactors = F)
-coarseIndexPoly <- readOGR("/mnt/a/tcormier/Mexico_CMS/lidar/index/","Oaxaca3_index", stringsAsFactors=F)
-# # library(maptools)
+# # grndCoveragePoly <- "/mnt/a/tcormier/testing/junk_cutzamala_grnd_with-shapely.shp"
+# # grndCoveragePoly <- readOGR(dirname(grndCoveragePoly), unlist(strsplit(basename(grndCoveragePoly), "\\."))[1])
+# # grndCoveragePoly <- readOGR("/mnt/a/tcormier/testing/", "junk", stringsAsFactors = F)
+# grndCoveragePoly <- readOGR(dirname(outpoly), unlist(strsplit(basename(outpoly), "\\."))[1])
+# # grndCoveragePoly <- readOGR("/mnt/a/tcormier/testing/", "Cartodata_coverage_all_itrf93_UTM15N", stringsAsFactors = F)
+# # coarseIndexPoly <- readOGR("/mnt/a/tcormier/Mexico_CMS/lidar/index/","Oaxaca3_index", stringsAsFactors=F)
+# # # library(maptools)
 # # grndCoveragePoly <- readShapePoly(outpoly)
-# # coarseIndexPoly <- readShapePoly("/mnt/a/tcormier/Mexico_CMS/lidar/index/Oaxaca3_index.shp")
-outIndex <- "/mnt/a/tcormier/testing/test_groundIndex.shp"
+# # # coarseIndexPoly <- readShapePoly("/mnt/a/tcormier/Mexico_CMS/lidar/index/Oaxaca3_index.shp")
+# coarseIndexPoly <- readOGR(dirname("/mnt/a/tcormier/Mexico_CMS/lidar/index/Cutzamala_index_with-shapely.shp"), unlist(strsplit(basename("/mnt/a/tcormier/Mexico_CMS/lidar/index/Cutzamala_index.shp"), "\\."))[1])
+# # coarseIndexPoly <- "/mnt/r/Mex_Lidar/Cartodata/Cutzamala/Tiling_scheme/EdoMex_TilingScheme.shp"
+# # coarseIndexPoly <- readOGR(dirname(coarseIndexPoly), unlist(strsplit(basename(coarseIndexPoly), "\\."))[1])
+# outIndex <- "/mnt/a/tcormier/testing/test_cutzamala_groundIndex.shp"
 
 groundIndex <- function(grndCoveragePoly, coarseIndexPoly, outIndex) {
   library(rgdal)
@@ -975,24 +983,25 @@ groundIndex <- function(grndCoveragePoly, coarseIndexPoly, outIndex) {
   # Using raster::intersect would be idea, but it doesn't return all of the tiles for 
   # some reason, leaving holes in the index. 
   # index.union <- raster::union(grndCoveragePoly, coarseIndexPoly)
-  writeOGR(grndCoveragePoly, "PG:dbname='tcormier' host='fusion' port='5433' ", layer_options = "geometry_name=geom", 
-           "grndCoveragePoly", "PostgreSQL")
-  writeOGR(coarseIndexPoly, "PG:dbname='tcormier' host='fusion' port='5433' ", layer_options = "geometry_name=geom", 
-           "coarseIndexPoly", "PostgreSQL")
+#   writeOGR(grndCoveragePoly, "PG:dbname='tcormier' host='fusion' port='5433' ", layer_options = "geometry_name=geom", 
+#            "grndCoveragePoly", "PostgreSQL")
+#   writeOGR(coarseIndexPoly, "PG:dbname='tcormier' host='fusion' port='5433' ", layer_options = "geometry_name=geom", 
+#            "coarseIndexPoly", "PostgreSQL")
   
   
   # Read it back in to see if it's fixed
   dsn <- "PG:dbname='tcormier' host='fusion' port='5433' "
   ogrListLayers(dsn)
+  grndCoveragePoly = readOGR(dsn="PG:host='fusion' port='5433' dbname='tcormier' user='tcormier' password='6yhn6yhn'","junk_cutzamala_grnd")
 
   # index.self <- raster::intersect(coarseIndexPoly, coarseIndexPoly)
-  index.int <- raster::intersect(grndCoveragePoly2, coarseIndexPoly)
+
   
-  # Connect to database
-  con <- dbConnect(drv="PostgreSQL", port="5433",host="fusion", dbname="tcormier")
-  # dbListTables(con)
-  
-  # index.gInt <- gIntersection(grndCoveragePoly, coarseIndexPoly)
+  index.int <- raster::union(grndCoveragePoly, coarseIndexPoly)
+  index.int2 <- raster::crop(index.int, grndCoveragePoly)
+  index.cover <- raster::cover(grndCoveragePoly, coarseIndexPoly)
+  # index.crop <- raster::crop(coarseIndexPoly, grndCoveragePoly)
+  # index.gInt <- gIntersection(coarseIndexPoly, grndCoveragePoly, byid = T, drop_lower_td = T)
   # index.grnd <- index.union[!duplicated(index.union@data$location) & !is.na(index.union@data$location),]
 
   
