@@ -1,13 +1,14 @@
 
 # A compilation of helpful functions that can be used across projects
 # Tina Cormier
-rasterOptions(tmpdir="/home/tcormier/RasTmpDir/")
+# rasterOptions(tmpdir="/home/tcormier/RasTmpDir/")
 
 #####################################
 # Rescale a raster to new min and max
 # Arguments: r=raster layer; newmin = new minimum value (number); newmax = new maximum value (number)
 rescaleRas <- function(r, newmin, newmax) {
   require(raster)
+  rasterOptions(tmpdir="/home/tcormier/RasTmpDir/")
   newrange <- c(newmin, newmax)
   r.res <- (r - cellStats(r, "min"))/diff(c(cellStats(r, "min"), cellStats(r, "max"))) * diff(newrange) + newrange[1]
   return(r.res)
@@ -213,6 +214,7 @@ plotWaveform <- function(waveformDF, nameHeightCol, nameCountCol, smoothFactor=0
 distOK <- function(xy, image, dist) {
   # Required Packages
   require(raster)
+  rasterOptions(tmpdir="/home/tcormier/RasTmpDir/")
   
   # Calcualte image extent and min/max X and Y
   ext <- extent(image)
@@ -280,6 +282,7 @@ writeMDDB_multPlotsPerPixel <- function(inImg, predNames, inPlot, xcol, ycol, ou
   require(maptools)
   require(sp)
   #require(rasterVis)
+  rasterOptions(tmpdir="/home/tcormier/RasTmpDir/")
   
   # let's write a log file of "stuff" - this will overwrite an existing log with the same name (can change)
   # this later if it becomes a problem
@@ -444,6 +447,7 @@ writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, 
   require(rgdal)
   require(rgeos)
   #library(geosphere,lib.loc="/home/mfarina/R/x86_64-redhat-linux-gnu-library/3.0")
+  rasterOptions(tmpdir="/home/tcormier/RasTmpDir/")
   
   # let's write a log file of "stuff" - this will overwrite an existing log with the same name (can change)
   # this later if it becomes a problem
@@ -886,6 +890,7 @@ imageCoverage <- function(ras, outpoly, parallel=T) {
   library(raster)
   library(rgdal)
   library(parallel)
+  rasterOptions(tmpdir="/home/tcormier/RasTmpDir/")
 
 # Took 2.65 minutes on Cutzamala 
   # p.1 <- proc.time()
@@ -976,9 +981,11 @@ imageCoverage <- function(ras, outpoly, parallel=T) {
 
 groundIndex <- function(grndCoveragePoly, coarseIndexPoly, outIndex) {
   library(rgdal)
+  library(raster)
   library(rgeos)
   library(sp)
   library(RPostgreSQL)
+  rasterOptions(tmpdir="/home/tcormier/RasTmpDir/")
   
   # Using raster::intersect would be idea, but it doesn't return all of the tiles for 
   # some reason, leaving holes in the index. 
@@ -1009,6 +1016,25 @@ groundIndex <- function(grndCoveragePoly, coarseIndexPoly, outIndex) {
   
 }
 
+#### A series of functions to create the minimum bounding circle around a set of points ##########
+# This function was written by Adrian Baddeley in response to my inquiry on r-sig-geo mailing list.
+# Adapting SLIGHTLY by Tina Cormier. We use these functions to create one plot from a set of subplots
+# (field data); however, they could be used to draw the min bounding circle around any set of points.
+
+circumcircle <- function(x, y, ...) {   UseMethod("circumcircle") }
+
+circumcircle.owin <- function(x, y, ...) {
+  library(spatstat)
+  d2 <- fardist(x, ..., squared=TRUE)
+  z <- where.min(d2)
+  r <- sqrt(min(d2))
+  w <- disc(centre=z, radius=r) 
+  return(w)
+}
+
+circumcircle.ppp <- function(x, y, ...) {
+  circumcircle(convexhull.xy(x,y))
+}
 
 
 
