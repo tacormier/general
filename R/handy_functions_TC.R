@@ -878,6 +878,8 @@ FUSION_polyclipdata <- function(polyPath, fieldNum, outBase, lasList) {
 # values to create the image coverage. This coverage represents the actual spatial area covered
 # by valid image values and can be used for indexing. Actual ground coverage.
 #
+# ** Having an issue with tiny polygons - need a way to smooth it out.
+#
 # Requires raster, rgdal, parallel
 
 # test <- raster("/mnt/r/Mex_Lidar/Cartodata/Cutzamala/Deliverables/Mosaics/DTM.tif")
@@ -1016,10 +1018,12 @@ groundIndex <- function(grndCoveragePoly, coarseIndexPoly, outIndex) {
   
 }
 
-#### A series of functions to create the minimum bounding circle around a set of points ##########
+#### Functions to create the minimum bounding circle around a set of points ##########
 # This function was written by Adrian Baddeley in response to my inquiry on r-sig-geo mailing list.
 # Adapting SLIGHTLY by Tina Cormier. We use these functions to create one plot from a set of subplots
 # (field data); however, they could be used to draw the min bounding circle around any set of points.
+
+# Returns an array.
 
 circumcircle <- function(x, y, ...) {   UseMethod("circumcircle") }
 
@@ -1033,17 +1037,51 @@ circumcircle.owin <- function(x, y, ...) {
 }
 
 circumcircle.ppp <- function(x, y, ...) {
+  library(spatstat)
   circumcircle(convexhull.xy(x,y))
 }
 
 
+#### MORE functions to create the minimum bounding circle around a set of points ##########
+
+## Robert Hijmans
+# Here is a solution using optimization to get the minimum bounding circle
+# of a set of points.
+
+# set.seed(7)
+# n <- 4
+# xy <- cbind(runif(n), runif(n))
+
+minCirc <- function(p) { 
+  library(raster)
+  library(rgeos)
+  rasterOptions(tmpdir="/home/tcormier/RasTmpDir/")
+  
+  f <- function(p) { max(pointDistance(p, xy, lonlat=FALSE)) }
+  p <- optim(colMeans(xy), f)
+  cc <- buffer(SpatialPoints(rbind(p$par)), width=p$value, quadsegs=45)
+  return(cc)
+} # end minBoundCirc function
 
 
+#################### Assign unique ID to each feature in a list of shapes #####################
+# This function is useful if you need to merge features, but are getting an error 
+# about features needing to have a unique ID
+# Input must be a list of opened spatial datasets, achieved, for example, thusly:
+# indiv.files <- list.files(dir, "*.shp$", full.names=T)
+# shps <- lapply(indiv.files, readShapePoly)
 
-
-
-
-
+uniqueShpID <- function(shpList) {
+  if (!is.list(shpList)) stop("input must be a list of spatial objects (see function file for examples)")
+  idx <- 0
+  for(i in seq_along(shps)){
+    idx <- max(idx) + 1
+    nr <- nrow(shps[[i]])
+    idx <- c(idx:(idx+nr-1))
+    shps[[i]] <- spChFIDs(shps[[i]], as.character(idx))
+  }
+  return(shps)
+} # end uniqueShpID function
 
 
 
