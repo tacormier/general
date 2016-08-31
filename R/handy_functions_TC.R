@@ -370,8 +370,9 @@ writeMDDB_multPlotsPerPixel <- function(inImg, predNames, inPlot, xcol, ycol, ou
   names(pointsmn) <- responseCol
   names(pointssd) <- paste0(responseCol, "_stdev")
   
-  # Output Shapefile of plot means
+  # Output Shapefiles of plot means and stdevs
   writePointsShape(pointsmn, outPlotMns)
+  # writePointsShape(pointssd, outPlotSds)
   
   dt2 <- Sys.time()
   mean.msg <- paste0("mean calculation finished ", dt2, " and took ", round(as.numeric(difftime(dt2,dt1,units='mins')),2), " minutes.")
@@ -441,11 +442,14 @@ writeMDDB_multPlotsPerPixel <- function(inImg, predNames, inPlot, xcol, ycol, ou
 #
 # Untested with shapefile input as inPlot
 
-writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, outMDDB, inImg, predNames, outBuff, pp, proj.in, logfile=T) {
+writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, outMDDB, inImg, predNames, outBuff, pp, proj.in, sdBands, logfile=T) {
   require(raster)
   require(maptools)
   require(rgdal)
   require(rgeos)
+  require(snowfall)
+  
+  n_cores <- 7
   #library(geosphere,lib.loc="/home/mfarina/R/x86_64-redhat-linux-gnu-library/3.0")
   rasterOptions(tmpdir="/home/tcormier/RasTmpDir/")
   
@@ -541,14 +545,18 @@ writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, 
   # Get image/raster data
   write(paste0("opening raster data: ", inImg), lf, append=T)  
   myBands <- brick(inImg)
+  myBands.list <- unstack(myBands)
   # Some NA value housekeeping
   #myBands[myBands == -9999 | myBands == -32768 | myBands == 32767] <- NA
   n <- nlayers(myBands)
  
   # Extract the data, specifying number of layers (automatically extracts all bands for now):
+  sfInit(parallel=T, cpus=n_cores)
+  sfLibrary(raster)
   T1 <- proc.time()
   write(paste0("extracting ", n, " bands of predictor data for ", nrow(polys.crs), " plots."), lf, append=T)
   extract.all = extract(myBands,polys.crs,nl=n,weights=TRUE)
+  system.time(extract.all.sf <- sfLapply(myBands.list, extract, y=polys.crs[1:3], layer=1, nl=4, weights=TRUE))
   write(paste0("finished extraction in ", round((proc.time()[3]-T1[3])/60,2), " minutes."), lf, append=T)
   
   # Compute the weighted means of the landsat bands for each glas shot
@@ -566,6 +574,19 @@ writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, 
   extract.final <- lapply(extract.valid, function(x) ifelse(x==-9999, NA, x))
   
   weighted.means <- lapply(extract.final, function(x) apply(x, 2, weighted.mean, w=x[,n+1], na.rm=F))
+  # Using all pixels that cross into the shot
+  stdev <- lapply(extract.final, function(x) apply(x, 2, sd, na.rm=F))
+  
+  # Or only pixels that have their centroid in the shot:
+  myStdevBands <- myBands[[sdBands]]
+  myStdevBands.list <- unstack(myBands[[sdBands]])
+  
+  # Parallel = took 9.16 hours
+  system.time(extract.centroid.sf <- sfLapply(myStdevBands.list, extract, y=polys.crs))
+  sfStop()
+  # Not parallel
+  system.time(extract.centroid <- extract(myStdevBands,polys.crs,layer=1,nl=1))
+  
   
   # Total number of pixels in each plot
   npix.tot <- unlist(lapply(extract.final, nrow))
@@ -576,6 +597,7 @@ writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, 
   npix <- npix.tot - npix.na
   
   results <- as.data.frame(do.call("rbind", weighted.means))[,(1:n)]
+  stdev.results <- as.data.frame(do.call("rbind", stdev))[,c(1:4,6,7)]
   results <- cbind(npix, data.df[[responseCol]][extract.nullpos==1], results, polys.crs$LON[extract.nullpos==1], polys.crs$LAT[extract.nullpos==1])
   names(results) <- c("npix_nonNA", responseCol,predNames, "X", "Y")
   
