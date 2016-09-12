@@ -443,11 +443,12 @@ writeMDDB_multPlotsPerPixel <- function(inImg, predNames, inPlot, xcol, ycol, ou
 # Untested with shapefile input as inPlot
 
 writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, outMDDB, inImg, predNames, outBuff, pp, proj.in, sdBands, logfile=T) {
-  require(raster)
+  require(Hmisc)
   require(maptools)
   require(rgdal)
   require(rgeos)
   require(snowfall)
+  require(raster)
   
   n_cores <- 7
   #library(geosphere,lib.loc="/home/mfarina/R/x86_64-redhat-linux-gnu-library/3.0")
@@ -456,7 +457,7 @@ writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, 
   # let's write a log file of "stuff" - this will overwrite an existing log with the same name (can change)
   # this later if it becomes a problem
   if (logfile == T) {
-    lf <- paste0(unlist(strsplit(outMDDB, "\\."))[1], "_logfile.txt")
+    lf <- paste0(unlist(strsplit(outMDDB, "\\."))[1], "_logfile_20160906.txt")
     file.create(lf)
     funCall <- paste0("Function Call: WriteMDDB_multPixelsPerPlot(", inPlot,", ",xcol,", ",ycol,", ",responseCol,", ",dist.m,", ",outMDDB,", ",inImg,", (",paste(predNames,collapse=","),"), ", outBuff, ", ",logfile, ")")
     write(funCall, lf, append=T)
@@ -554,11 +555,44 @@ writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, 
   sfInit(parallel=T, cpus=n_cores)
   sfLibrary(raster)
   T1 <- proc.time()
-  write(paste0("extracting ", n, " bands of predictor data for ", nrow(polys.crs), " plots."), lf, append=T)
-  extract.all = extract(myBands,polys.crs,nl=n,weights=TRUE)
-  system.time(extract.all.sf <- sfLapply(myBands.list, extract, y=polys.crs[1:3], layer=1, nl=4, weights=TRUE))
-  write(paste0("finished extraction in ", round((proc.time()[3]-T1[3])/60,2), " minutes."), lf, append=T)
+  write(paste0("extracting ", n, " bands of predictor data for ", nrow(polys.crs), " plots. Started at ", Sys.time()), lf, append=T)
+  # non-parallel version
+  # extract.all = extract(myBands,polys.crs[1:3,],nl=2, layer=1, weights=TRUE)
   
+  # myBands.list <- myBands.list[1:2]
+  # Parallel version
+  system.time(extract.all.sf <- sfLapply(myBands.list, raster::extract, y=polys.crs, weights=T))
+  sfStop()
+  
+write(paste0("finished extraction in ", round((proc.time()[3]-T1[3])/60,2), " minutes."), lf, append=T)
+  
+  # Need to reorganize the output of the multicore extraction to match
+  # output of single-core extraction - makes the rest of the code just work
+  # Loop to transpose the list so the outer list represents the plots, and the
+  # extraction data for each band is contained in dataframes within each plot list object.
+  # collector for transposed list: LEFT OFF AFTER FINISHING THIS LOOP. BEFORE FINISHING FUNCTION, 
+  # CHANGE EXTRACT.ALL.T TO EXTRACT.ALL. JUST DON'T WANT TO WRITE OVER IT WHILE I'M TESTING!
+  extract.all.orig <- extract.all.sf
+  extract.all <- list()
+  for (l in (1:length(extract.all.sf[[1]]))) {
+    # lth element of each outer list element (so this represents plot 1, when l=1, all bands)
+    extract.l <- lapply(extract.all.sf, "[[", l)
+    extract.dfs <- lapply(extract.l, as.data.frame)
+    # QA Check: Make sure all weights are all equal between dfs
+    extract.wts <- lapply(extract.dfs, function(x) { x["value"] <- NULL; x })
+    if (length(unique(extract.wts)) != 1) stop("Problem transposing lists - weights aren't lining up. Check that inputs are what you expect.")
+
+    # remove weights for cbinding (don't want 25 of the same weight columns)
+    extract.nowt <- lapply(extract.dfs, function(x) { x["weight"] <- NULL; x })
+    extract.cb <- do.call(cbind, extract.nowt)
+    names(extract.cb) <- predNames
+    # Now tack on the weights - ok to just take the weights from the first band, since we already
+    # checked that they are all equal.
+    extract.done <- as.matrix(cbind(extract.cb, extract.wts[[1]]))
+    extract.all[[l]] <- extract.done
+  } # end list transpose loop (looping over plots)
+  
+
   # Compute the weighted means of the landsat bands for each glas shot
   # Here, the weights are the *proportions* of each pixel inside the glas shot. 
   # length(extract.all) should give you the total number of glas shots
@@ -574,19 +608,13 @@ writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, 
   extract.final <- lapply(extract.valid, function(x) ifelse(x==-9999, NA, x))
   
   weighted.means <- lapply(extract.final, function(x) apply(x, 2, weighted.mean, w=x[,n+1], na.rm=F))
-  # Using all pixels that cross into the shot
-  stdev <- lapply(extract.final, function(x) apply(x, 2, sd, na.rm=F))
-  
-  # Or only pixels that have their centroid in the shot:
-  myStdevBands <- myBands[[sdBands]]
-  myStdevBands.list <- unstack(myBands[[sdBands]])
-  
-  # Parallel = took 9.16 hours
-  system.time(extract.centroid.sf <- sfLapply(myStdevBands.list, extract, y=polys.crs))
-  sfStop()
-  # Not parallel
-  system.time(extract.centroid <- extract(myStdevBands,polys.crs,layer=1,nl=1))
-  
+  # Just a check to make sure these are the same from two different functions
+  #wmeans.hmisc <- lapply(extract.final, function(x) apply(x, 2, wtd.mean, weights=x[,n+1], na.rm=F))
+  weighted.var <- lapply(extract.final, function(x) apply(x, 2, wtd.var, weights=x[,n+1], na.rm=F, normwt=T))
+  weighted.stdev <- lapply(weighted.var, sqrt)
+  # convert to dfs
+  # weighted.means <- lapply(weighted.means, as.vector)
+  # weighted.stdev <- lapply(weighted.stdev, as.vector)
   
   # Total number of pixels in each plot
   npix.tot <- unlist(lapply(extract.final, nrow))
@@ -596,10 +624,12 @@ writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, 
   # Difference - means the number of pixels for which we have complete data in a plot.
   npix <- npix.tot - npix.na
   
-  results <- as.data.frame(do.call("rbind", weighted.means))[,(1:n)]
-  stdev.results <- as.data.frame(do.call("rbind", stdev))[,c(1:4,6,7)]
-  results <- cbind(npix, data.df[[responseCol]][extract.nullpos==1], results, polys.crs$LON[extract.nullpos==1], polys.crs$LAT[extract.nullpos==1])
-  names(results) <- c("npix_nonNA", responseCol,predNames, "X", "Y")
+  mean.results <- as.data.frame(do.call("rbind", weighted.means))[,(1:n)]
+  stdev.results <- as.data.frame(do.call("rbind", weighted.stdev))[,sdBands]
+  cov.results <- mean.results[,sdBands]/stdev.results
+  results <- cbind(npix, data.df[[responseCol]][extract.nullpos==1], mean.results, stdev.results, cov.results, polys.crs$LON[extract.nullpos==1], polys.crs$LAT[extract.nullpos==1])
+  names.stdev <- c(paste0(predNames, "_wSD")[sdBands], paste0(predNames, "_wCov")[sdBands])
+  names(results) <- c("npix_nonNA", responseCol, predNames, names.stdev, "X", "Y")
   
   #Write out the mddb file
   cat('Writing MDDB file\n')
@@ -1003,6 +1033,10 @@ imageCoverage <- function(ras, outpoly, parallel=T) {
 # # coarseIndexPoly <- readOGR(dirname(coarseIndexPoly), unlist(strsplit(basename(coarseIndexPoly), "\\."))[1])
 # outIndex <- "/mnt/a/tcormier/testing/test_cutzamala_groundIndex.shp"
 
+# From mac
+coarseIndexPoly <- readOGR(dirname("/Users/tcormier/Documents/test/Cutzamala_index.shp"), unlist(strsplit(basename("/Users/tcormier/Documents/test/Cutzamala_index.shp"), "\\."))[1])
+grndCoveragePoly <- readOGR(dirname("/Users/tcormier/Documents/test/junk_cutzamala_grnd.shp"), unlist(strsplit(basename("/Users/tcormier/Documents/test/junk_cutzamala_grnd.shp"), "\\."))[1])
+outIndex <- "/Users/tcormier/Documents/test/test_cutzamala_groundIndex.shp"
 groundIndex <- function(grndCoveragePoly, coarseIndexPoly, outIndex) {
   library(rgdal)
   library(raster)
