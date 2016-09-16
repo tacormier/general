@@ -1034,9 +1034,9 @@ imageCoverage <- function(ras, outpoly, parallel=T) {
 # outIndex <- "/mnt/a/tcormier/testing/test_cutzamala_groundIndex.shp"
 
 # From mac
-coarseIndexPoly <- readOGR(dirname("/Users/tcormier/Documents/test/Cutzamala_index.shp"), unlist(strsplit(basename("/Users/tcormier/Documents/test/Cutzamala_index.shp"), "\\."))[1])
-grndCoveragePoly <- readOGR(dirname("/Users/tcormier/Documents/test/junk_cutzamala_grnd.shp"), unlist(strsplit(basename("/Users/tcormier/Documents/test/junk_cutzamala_grnd.shp"), "\\."))[1])
-outIndex <- "/Users/tcormier/Documents/test/test_cutzamala_groundIndex.shp"
+# coarseIndexPoly <- readOGR(dirname("/Users/tcormier/Documents/test/Cutzamala_index.shp"), unlist(strsplit(basename("/Users/tcormier/Documents/test/Cutzamala_index.shp"), "\\."))[1])
+# grndCoveragePoly <- readOGR(dirname("/Users/tcormier/Documents/test/junk_cutzamala_grnd.shp"), unlist(strsplit(basename("/Users/tcormier/Documents/test/junk_cutzamala_grnd.shp"), "\\."))[1])
+# outIndex <- "/Users/tcormier/Documents/test/test_cutzamala_groundIndex.shp"
 groundIndex <- function(grndCoveragePoly, coarseIndexPoly, outIndex) {
   library(rgdal)
   library(raster)
