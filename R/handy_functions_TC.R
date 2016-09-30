@@ -869,8 +869,16 @@ las2tiles <- function(lasdir, tilesize, rawFormat='las', utmZone, siteID, rm.tmp
   system(txt.cmd)
   
   # Make a grid for use in R
-  grid.cmd <- paste0("/usr/bin/wine /mnt/s/LAStools/bin/lasgrid.exe -i ", tmpdir, "*.las -odir ", geodir, " -merged -o ", siteID, "_grid.tif -step ", tilesize, " -utm ", utmZone, " -counter_32bit")
+  # create temp file that contains list of las files - can be deleted after.
+  laslist <- list.files(tmpdir, "*.las$", full.names=T)
+  tmplaslist <- paste0(tmpdir, "laslist.txt")
+  fileConn<-file(tmplaslist)
+  writeLines(laslist, fileConn)
+  close(fileConn)
+  
+  grid.cmd <- paste0("/usr/bin/wine /mnt/s/LAStools/bin/lasgrid.exe -lof ", tmplaslist, " -odir ", geodir, " -merged -o ", siteID, "_grid.tif -step ", tilesize, " -utm ", utmZone, " -counter_32bit")
   system(grid.cmd)
+  if (rm.tmp == T) unlink(tmplaslist)
   
   # Some checking to make sure all files were created:
   orig <- length(lasfiles)
