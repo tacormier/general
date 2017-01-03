@@ -477,7 +477,7 @@ writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, 
     vec <- readOGR(dirname(inPlot), unlist(strsplit(basename(inPlot), "\\."))[1])
     coords <- as.data.frame(cbind(vec[[xcol]], vec[[ycol]]))
     names(coords) <- c("LON", "LAT")
-    vec <- SpatialPointsDataFrame(coords, vec, proj4string = CRS(proj.in))
+    #vec <- SpatialPointsDataFrame(coords, vec, proj4string = CRS(proj.in))
   } else if (ext == "shp" & pp == "polygons") {
     vec <- readOGR(dirname(inPlot), unlist(strsplit(basename(inPlot), "\\."))[1])
     coords <- as.data.frame(cbind(vec[[xcol]], vec[[ycol]]))
@@ -496,16 +496,30 @@ writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, 
 #       vec <- spTransform(vec, CRSobj = CRS("+proj=longlat +datum=WGS84 +no_defs"))
 #     }
     # gBuffer requires projected coordinates, so just for a minute:
-    # Use an equal-area projection to buffer the points, then put back to WGS84
+    # Use an equal-area projection to buffer the points, then put back to WGS84. Assumes if the proj
+    # is not in latlong, units be in METERS. 
     # Adapted from: http://gis.stackexchange.com/questions/121489/1km-circles-around-lat-long-points-in-many-places-in-world
-    aeqd.buffer <- function(p, r)
+    aeqd.buffer <- function(p, r, proj.in)
     {
       stopifnot(length(p) == 1)
-      aeqd <- sprintf("+proj=aeqd +lat_0=%s +lon_0=%s +x_0=0 +y_0=0",
+      # If the points are in latlong, put into aeqd proj for buffering
+      if (grepl("longlat", projection(p)) ) {
+        print("CRS in latlong - temporarily reprojecting to AEQD for buffering")
+  
+        aeqd <- sprintf("+proj=aeqd +lat_0=%s +lon_0=%s +x_0=0 +y_0=0",
                       p@coords[[2]], p@coords[[1]])
-      projected <- spTransform(p, CRS(aeqd))
+        projected <- spTransform(p, CRS(aeqd))
+      } else {
+        print(paste0("Using projection from points file for buffering: ", projection(p)))
+        projected <- p
+      } # end latlong if
+      
       buffered <- gBuffer(projected, width=r, quadsegs=90,byid=TRUE)
-      spTransform(buffered, p@proj4string)
+      if (projection(p) != projection(buffered)) {
+        print("returning polygons to original projection of input points.")
+        spTransform(buffered, p@proj4string)
+      }# end projection if
+      return(buffered)
     }
     
     # Make a list, each element of the list has one SpatialPolygons polygon (one circle)
@@ -623,13 +637,13 @@ write(paste0("finished extraction in ", round((proc.time()[3]-T1[3])/60,2), " mi
   npix.na <- unlist(lapply(extract.final, function(x) max(colSums(is.na(x)))))
   # Difference - means the number of pixels for which we have complete data in a plot.
   npix <- npix.tot - npix.na
-  
+  origPlot.data <- data.df[,names(data.df) %in% names(vec)]
   mean.results <- as.data.frame(do.call("rbind", weighted.means))[,(1:n)]
   stdev.results <- as.data.frame(do.call("rbind", weighted.stdev))[,sdBands]
   cov.results <- mean.results[,sdBands]/stdev.results
-  results <- cbind(npix, data.df[[responseCol]][extract.nullpos==1], mean.results, stdev.results, cov.results, polys.crs$LON[extract.nullpos==1], polys.crs$LAT[extract.nullpos==1])
+  results <- cbind(npix, origPlot.data[extract.nullpos==1,], mean.results, stdev.results, cov.results)
   names.stdev <- c(paste0(predNames, "_wSD")[sdBands], paste0(predNames, "_wCov")[sdBands])
-  names(results) <- c("npix_nonNA", responseCol, predNames, names.stdev, "X", "Y")
+  names(results) <- c("npix_nonNA", names(origPlot.data), predNames, names.stdev)
   
   #Write out the mddb file
   cat('Writing MDDB file\n')
@@ -1091,8 +1105,8 @@ groundIndex <- function(grndCoveragePoly, coarseIndexPoly, outIndex) {
   # index.grnd <- index.union[!duplicated(index.union@data$location) & !is.na(index.union@data$location),]
 
   
-  writeOGR(index.int, "/mnt/a/tcormier/testing/", "junk3", driver = "ESRI Shapefile", overwrite=T)
-  
+  writeOGR(index.int, dirname(outindex), unlist(strsplit(basename(outindex), "\\."))[1], driver = "ESRI Shapefile", overwrite=T)
+  return(index.int)
 }
 
 #### Functions to create the minimum bounding circle around a set of points ##########
