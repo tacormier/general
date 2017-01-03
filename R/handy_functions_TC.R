@@ -8,7 +8,7 @@
 # Arguments: r=raster layer; newmin = new minimum value (number); newmax = new maximum value (number)
 rescaleRas <- function(r, newmin, newmax) {
   require(raster)
-  rasterOptions(tmpdir="/home/tcormier/RasTmpDir/")
+  # rasterOptions(tmpdir="/home/tcormier/RasTmpDir/")
   newrange <- c(newmin, newmax)
   r.res <- (r - cellStats(r, "min"))/diff(c(cellStats(r, "min"), cellStats(r, "max"))) * diff(newrange) + newrange[1]
   return(r.res)
