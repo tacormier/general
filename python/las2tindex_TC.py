@@ -135,7 +135,7 @@ def main():
             maximum = header.get_max()
         # else use lasinfo command
         elif not llas:
-            command = "/mnt/a/tcormier/LAStools/bin/lasinfo -no_check %s" % i
+            command = "/mnt/a/tcormier/LAStools/bin/lasinfo.exe -no_check %s" % i
             lasout = subprocess.Popen(command, shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()
             bbox = []
             # for each line of output check min and max values
