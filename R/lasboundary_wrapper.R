@@ -7,7 +7,7 @@ QLOG <- "/mnt/a/tcormier/scripts/logs/lasboundary/"
 outdir <- "/mnt/r/Mex_Lidar/ground_coverage_lastools/"
 
 # Input directory containing regional subdirectories
-master.dir <- "/mnt/r/Mex_Lidar/Cartodata/"
+# master.dir <- "/mnt/r/Mex_Lidar/Cartodata/"
 # master.dir <- "/mnt/r/Mex_Lidar/G_LiHT/"
 
 # List of regional subdirectories:
@@ -64,12 +64,12 @@ lasutm <- read.csv(lasutm.tbl, stringsAsFactors = F)
 
 # quick hack - only for Mexico data and just so happens to work for
 # Cartodata and G-LiHT
-lasutm$subdir <- NA
-for (i in (1:nrow(lasutm))) {
-  x <- unlist(strsplit(lasutm$path[i], "/"))
-  lasutm$subdir[i] <- x[length(x)-2]
-}
-write.csv(lasutm, lasutm.tbl, row.names=F, quote=F)
+# lasutm$subdir <- NA
+# for (i in (1:nrow(lasutm))) {
+#   x <- unlist(strsplit(lasutm$path[i], "/"))
+#   lasutm$subdir[i] <- x[length(x)-2]
+# }
+# write.csv(lasutm, lasutm.tbl, row.names=F, quote=F)
 
 
 for (lasdir in lasutm$path) {
@@ -97,6 +97,7 @@ for (lasdir in lasutm$path) {
   writeLines(las.files, fileConn)
   close(fileConn)
   
+}
   # Test file that runs quickly for debugging only
 #   txt <- paste0(unlist(strsplit(txt, "\\."))[1], "_TEST.txt")
 #   lasfiles2 <- lasfiles[c(1:10, 331:337)]
