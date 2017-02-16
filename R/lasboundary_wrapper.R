@@ -4,7 +4,7 @@
 QLOG <- "/mnt/a/tcormier/scripts/logs/lasboundary/"
 
 # output directory where boundary shapefile will be saved.
-outdir <- "/mnt/r/Mex_Lidar/ground_coverage_lastools/"
+outdir <- "/mnt/r/Mex_Lidar/ground_coverage_lastools_noholes/"
 
 # Input directory containing regional subdirectories
 # master.dir <- "/mnt/r/Mex_Lidar/Cartodata/"
@@ -85,19 +85,19 @@ for (lasdir in lasutm$path) {
   # write lasfiles to txt file
   if(!is.na(tbl$subsection)) {
     txt <- paste0(listdir, tbl$source, "_", tbl$subdir, "_", tbl$subsection, "_UTM", tbl$Zone_Num, "N_fileList.txt")
-    outshp <- paste0(outdir, tbl$source, "_", tbl$subdir, "_", tbl$subsection, "_UTM", tbl$Zone_Num, "_groundCoverage.shp")
-    out.rdata <- paste0(rdata.dir, tbl$source, "_", tbl$subdir, "_", tbl$subsection, "_UTM", tbl$Zone_Num, "_groundCoverage.rdata")
+    outshp <- paste0(outdir, tbl$source, "_", tbl$subdir, "_", tbl$subsection, "_UTM", tbl$Zone_Num, "N_groundCoverage.shp")
+    out.rdata <- paste0(rdata.dir, tbl$source, "_", tbl$subdir, "_", tbl$subsection, "_UTM", tbl$Zone_Num, "N_groundCoverage.rdata")
   } else {
     txt <- paste0(listdir, tbl$source, "_", tbl$subdir, "_UTM", tbl$Zone_Num, "N_fileList.txt")
-    outshp <- paste0(outdir, tbl$source, "_", tbl$subdir, "_UTM", tbl$Zone_Num, "_groundCoverage.shp")
-    out.rdata <- paste0(rdata.dir, tbl$source, "_", tbl$subdir, "_UTM", tbl$Zone_Num, "_groundCoverage.rdata")
+    outshp <- paste0(outdir, tbl$source, "_", tbl$subdir, "_UTM", tbl$Zone_Num, "N_groundCoverage.shp")
+    out.rdata <- paste0(rdata.dir, tbl$source, "_", tbl$subdir, "_UTM", tbl$Zone_Num, "N_groundCoverage.rdata")
   }
   
   fileConn<-file(txt)
   writeLines(las.files, fileConn)
   close(fileConn)
   
-}
+
   # Test file that runs quickly for debugging only
 #   txt <- paste0(unlist(strsplit(txt, "\\."))[1], "_TEST.txt")
 #   lasfiles2 <- lasfiles[c(1:10, 331:337)]
@@ -110,7 +110,7 @@ for (lasdir in lasutm$path) {
   
   # Grid engine call
   jobname <- basename(unlist(strsplit(outshp, "\\."))[1])
-  sys.call <- paste("/net/share-2/export/HomeDir/sge6.2/bin/lx24-amd64/qsub -b yes -l rdisk=2G -q nondev.q -V -N", jobname, "-o",QLOG, "-e", QLOG, 
+  sys.call <- paste("/net/share-2/export/HomeDir/sge6.2/bin/lx24-amd64/qsub -b yes -l rdisk=4G -q nondev.q -V -N", jobname, "-o",QLOG, "-e", QLOG, 
                     "/mnt/s/bin/jqsub 'R --vanilla --slave < /mnt/a/tcormier/scripts/general/R/lasboundary_worker.R' --args", out.rdata)
   system(sys.call)
   
