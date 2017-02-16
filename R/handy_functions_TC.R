@@ -956,6 +956,8 @@ FUSION_polyclipdata <- function(polyPath, fieldNum, outBase, lasList) {
 #
 # Requires raster, rgdal, parallel
 
+# NOTE: This function has largely been replaced by lasboundary (LASTools).
+
 # test <- raster("/Users/tcormier/Documents/test/DTM.tif")
 # outpoly <- "/Users/tcormier/Documents/test/junk_cutzamala_grnd.shp"
 # # # test <- raster("/mnt/r/Mex_Lidar/Cartodata/Oaxaca3/Deliverables/Mosaics/TNC_OAX3_DTM.tif")
@@ -1072,7 +1074,8 @@ groundIndex <- function(grndCoveragePoly, coarseIndexPoly, outIndex) {
   library(raster)
   library(rgeos)
   library(sp)
-  library(RPostgreSQL)
+  # library(RPostgreSQL)
+  library(RQGIS)
   rasterOptions(tmpdir="/home/tcormier/RasTmpDir/")
   
   # Using raster::intersect would be idea, but it doesn't return all of the tiles for 
@@ -1095,9 +1098,55 @@ groundIndex <- function(grndCoveragePoly, coarseIndexPoly, outIndex) {
   if (projection(grndCoveragePoly) != projection(coarseIndexPoly)) {
     grndCoveragePoly <- spTransform(grndCoveragePoly, projection(coarseIndexPoly))
   }
-
   
-  index.int <- raster::intersect(grndCoveragePoly, coarseIndexPoly)
+  # Check area of ground polygons and remove any that are 0 (will cause an error if there are single points or lines) FIX THIS
+  # grndCoveragePoly <- grndCoveragePoly[-which(sapply(grndCoveragePoly@polygons, function(x) x@area) == 0),]
+  
+  # This first line works on my mac, but I have some weird polygons that are actually points
+  # or lines that are throwing a wrench into things. The line above removes those problemmatic 
+  # polygons, but I'm not sure I trust it, as guidance on stack exchange says not to rely on the area slot
+  # for actual area. And I got different number of polygons doing this intersection in R vs. QGIS (by one in my
+  # test case, and I don't think it was a significant one - but I got a warning about self-intersecting polygon).
+  
+  # SO, try raster intersect, and if you get an error, go to the slower qgis method, which will ONLY work on the mac currently 
+  # bc R and QGIS are super outdated on the cluster.
+  
+  # Well, the above was a great idea, but I still got some missing tiles with raster intersect.
+  # It happened on the g-liht stuff, which had self-intersecting polygon messes, but qgis seems to
+  # know how to deal with it. Sigh.
+  
+  # index.int <- try(raster::intersect(grndCoveragePoly, coarseIndexPoly))
+  # If raster::intersect fails - use RQGIS
+  # if (class(index.int) == "try-error") {
+    # cat("Caught an error during raster::intersect, trying RQGIS intersection. \n")
+  # set the environment, i.e. specify all the paths necessary to run QGIS from 
+  # within R
+    my_env <- set_env(root="/Applications/QGIS.app")
+    # find_algorithms(search_term = "intersection", 
+                    # qgis_env = my_env)
+    # get_usage(alg = "qgis:intersection",
+              # qgis_env = my_env,
+              # intern = TRUE)
+    params <- get_args_man(alg = "qgis:intersection", qgis_env = my_env)
+    
+    params$INPUT <- coarseIndexPoly
+    params$INPUT2 <- grndCoveragePoly
+    params$OUTPUT <- outIndex
+    
+    out <- run_qgis(alg = "qgis:intersection",
+                    params = params,
+                    load_output = params$OUTPUT,
+                    qgis_env = my_env)
+    return(out)
+    
+  # } else {
+    
+      # shapefile(index.int, outIndex, overwrite=T)
+      # return(index.int)
+    
+    # }# end try if
+    
+  
   # index.int2 <- raster::crop(index.int, grndCoveragePoly)
   # index.cover <- raster::cover(grndCoveragePoly, coarseIndexPoly)
   # index.crop <- raster::crop(coarseIndexPoly, grndCoveragePoly)
@@ -1105,7 +1154,7 @@ groundIndex <- function(grndCoveragePoly, coarseIndexPoly, outIndex) {
   # index.grnd <- index.union[!duplicated(index.union@data$location) & !is.na(index.union@data$location),]
 
   
-  writeOGR(index.int, dirname(outindex), unlist(strsplit(basename(outindex), "\\."))[1], driver = "ESRI Shapefile", overwrite=T)
+  shapefile(index.int, outIndex, overwrite=T)
   return(index.int)
 }
 
