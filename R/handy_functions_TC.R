@@ -1175,8 +1175,17 @@ uniqueShpID <- function(shpList) {
 } # end uniqueShpID function
 
 
+#################### Strip file extension from file path/name #####################
+stripExt <- function(filename) {
+  x <- unlist(strsplit(filename, "\\."))[1]
+  return(x)
+}
 
-
+#################### Strip file path and extension from file (base) name #####################
+stripExtBase <- function(filename) {
+  x <- unlist(strsplit(basename(filename), "\\."))[1]
+  return(x)
+}
 
 
 
