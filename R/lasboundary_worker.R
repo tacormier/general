@@ -9,5 +9,5 @@ vars <- Args[1]
 load(vars)
 
 # lasboundary call
-las.bnd <- paste0("/mnt/a/tcormier/LAStools/bin/lasboundary.exe -lof ", txt, " -thin_with_grid 5 -holes -disjoint -merged -utm ", tbl$Zone_Num, "N -o ", outshp)
+las.bnd <- paste0("/mnt/a/tcormier/LAStools/bin/lasboundary.exe -lof ", txt, " -thin_with_grid 5 -disjoint -merged -utm ", tbl$Zone_Num, "N -o ", outshp)
 system(las.bnd)
