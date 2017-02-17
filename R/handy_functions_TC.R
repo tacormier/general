@@ -15,87 +15,17 @@ rescaleRas <- function(r, newmin, newmax) {
 } # end rescaleRas function
 
 
-#####################################
+##################################### MAKEPROF ###########################
 # From Fabio's calc metrics code:
-# function to produce pseudo-waveforms. The function makes several adjustments to the elevation
-# values, including subtracting the DTM values to account for slope, then finding the ground peak, 
-# removing anything beneath it, and adjusting/triming the other heights relative to the ground (Fabio's code).
-# lasdata = las data table/df, res = vertical resolution (m), dtm = high res dtm (raster) for removing 
-# slope effects (optional), max.height is the largest height to consider in metrics and is determined by the user
-# based on field data or expert knowledge; heights taller than this value are flagged. min.height is
-# lowest height considered in the metrics and is determined by the user based on field data or expert knowledge; 
-# lower heights are flagged.
+#function to produce pseudo-waveforms
 
-makeprof <- function(lasdata, res, dtm=NULL, max.height=NULL, min.height) { 
-  #remove rows with no elevation if they exist
-  naid <- which(is.na(lasdata$z))
-  if (length(naid) > 0) lasdata <- lasdata[-naid,]
-  
-  #remove topography using DTMs if one is specified
-  if (!is.null(dtm)) {
-    print("extracting DTM values. . .")
-    pt <- proc.time()
-    ptground <- extract(dtm, lasdata[,1:2])
-    naid2 <- which(is.na(ptground))
-    print(paste0("DTM extraction complete in ", round(proc.time()[1]+proc.time()[2] - pt[1] - pt[2], digits=4), " seconds."))
-    
-    
-    # remove rows where z=NA after extracting, then subtract DTM 
-    # (i.e. where DTM = NA)
-    if (length(naid2) > 0) {
-      ptground <- ptground[-naid2]
-      lasdata <- lasdata[-naid2,]
-    }
-    lasdata$z <- lasdata$z - ptground
-  } # end dtm if
-
-  # If there are no rows left after subracting slope:
-  if (nrow(lasdata) == 0) {
-    profile <- data.frame(height=NA, counts=NA, intensity=NA) 
-    genergy <- NA
-    tenergy <- NA
-    gmax0c <- NA
-    log.val5 <- 0
-    fgt <- 0
-    fltm <- 0
-    return(list(profile, gmax0c, genergy, tenergy, fgt, fltm, log.val5)) 
-    }
-  
-  # Tile quality check/flag generation/filtering
-  fgt <- length(lasdata$z[lasdata$z > max.height]) / length(lasdata$z) * 100 #82 m = 20% more than the maximum height measured in the field (i.e. 68 m)
-  if (fgt > 1) {
-    warning("More than 1% of normalized heights are greater than max.height") #warning("More than 1% of normalized heights > 82 m")
-  } else {
-    lasdata <- lasdata[lasdata$z <= max.height,] # less than 1% of points violate the max.height condition, so just remove those points.
-    }
-  
-  fltm <- length(lasdata$z[lasdata$z < min.height]) / length(lasdata$z) * 100
-  if (fltm > 1) {
-    warning("More than 1% of normalized heights are less than min.height") #warning("More than 1% of normalized heights < -3 m")
-  } else {
-    lasdata <- lasdata[lasdata$z >= min.height,] # less than 1% of points violate the min.height condition, so just remove those points.
-  }
-  
-  # If either of above flags are violated, this tile should not be used.
-  # Break from function and return their values
-  if (fgt > 1 | fltm > 1) {
-    profile <- data.frame(height=NA, counts=NA, intensity=NA) 
-    genergy <- NA
-    tenergy <- NA
-    gmax0c <- NA
-    log.val5 <- 0
-    return(list(profile, gmax0c, genergy, tenergy, fgt, fltm, log.val5))  
-    } # end fgt/fltm if
-  
-  # If all is well, continue with profile
-  elev <- lasdata$z
+makeprof <- function(mydata, res) { #mydata = las data, res = vertical resolution (m)
+  elev <- mydata$z
   elev0 <- elev - min(elev) #note that 0 here is the lowest elevation, not the ground peak
-  int <- lasdata$i
-  clas <- lasdata$c #2 - ground, 3 - low vegetation, 4 - medium vegetation, 5 - high vegetation, etc
+  int <- mydata$i
+  clas <- mydata$c #2 - ground, 3 - low vegetation, 4 - medium vegetation, 5 - high vegetation, etc
   breaks <- seq(min(elev0), max(elev0)+res, by=res)
   z <- breaks[2:length(breaks)]
-  gmax <- max(elev0[clas==2])
-  #if (gmax < z[1]) warning("ground height < bin size")
   
   #get number of points per height interval
   hist_elev0 <- hist(elev0, breaks=seq(min(elev0), max(elev0)+res, by=res), include.lowest=T, right=F, plot=F) 
@@ -114,32 +44,9 @@ makeprof <- function(lasdata, res, dtm=NULL, max.height=NULL, min.height) {
   #check: int_n should be equal to counts
   if (sum(int_n - counts) != 0) stop("Check the code... we have a problem") 
   
-  # profile df
-  profile <- data.frame(height=z, counts=counts, intensity=int_sum)
-  
-  gmax0 <- max(lasdata$z[lasdata$c==2], na.rm=T) - min(lasdata$z)
-  #profile$counts <- profile$counts/max(profile$counts[profile$height > gmax0]) #normalize lidar profile by maximum canopy return
-  genergy <- sum(profile$counts[profile$height <= gmax0])
-  tenergy <- sum(profile$counts)
-  if (gmax0 < profile$height[1]) {
-    log.val5 <- 1
-    peakid <- 1
-  } else {
-    peakid <- which(profile$counts == max(profile$counts[profile$height <= gmax0])) #find ground peak
-    if (length(peakid) > 1) peakid <- peakid[1]
-    log.val5 <- 0
-  }
-  
-  # Adjust heights relative to ground
-  profile <- profile[peakid:nrow(profile),] #trim profile
-  gmax0c <- gmax0 - min(profile$height) #correct max ground height
-  profile$height <- profile$height - min(profile$height) #correct heights
-  
-  #return adjusted profile
-  return(list(profile, gmax0c, genergy, tenergy, fgt, fltm, log.val5))
+  #return
+  data.frame(height=z, counts=counts, intensity=int_sum)
 }
-
-#
 
 #####################################
 
