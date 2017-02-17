@@ -8,5 +8,14 @@ tmpdir <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/all_20170215/tmp_ind
 # directory with las files
 lasdir <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/all_20170215/"
 
-# find wine files - those files submitted to the FUSION command
-w.files <- list.files(tmpdir, "*_wine.txt$")
+# find wine and las files - those files submitted to the FUSION command
+w.files <- list.files(tmpdir, "*_wine.txt$", full.names=T)
+l.files <- list.files(lasdir, "*.las$", full.names=T)
+
+# First, see which files are missing by comparing the names
+w.base <- unlist(lapply(w.files, function(x) gsub("_lasIntersect_wine", "", stripExtBase(x))))
+l.base <- unlist(lapply(l.files, function(x) stripExtBase(x)))
+
+missing <- w.base[!which()]
+missing <- w.base[!(w.base %in% l.base)]
+
