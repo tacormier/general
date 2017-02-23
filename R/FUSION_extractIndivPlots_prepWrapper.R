@@ -34,7 +34,10 @@ reform <- 'Y'
 deltmp <- 'N'
 
 #where do you want to store the qsub logs? Directory. Does not have to exist already.
-QLOG <- "/mnt/a/tcormier/scripts/logs/CMS_lidarExtract/"
+QLOG <- "/mnt/a/tcormier/scripts/logs/CMS_lidarExtract/resubmit1/"
+
+# txt file of IDs that errored - later, take this out and make it its own script.
+# error.txt <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/all_20170215/error_files/missingIDs.txt"
 
 ##########################################
 # Make some directories
@@ -63,17 +66,28 @@ params$outBase <- gsub(".shp", ".las", params$outBase)
 tmpdir <- paste0(outdir, "tmp_indivPlots/")
 dir.create(tmpdir, showWarnings=F)
 
+# Comment this err.ids out if not rerunning errors but instead running a whole file.
+# err.ids <- scan(error.txt, what="character")
+
 # Loop over each shapefile
 for (p in (1:length(params$polyPath))) {
-  # strip ".shp" from paths
   li <- params$lasindex[p]
   ps <- params$polyPath[p]
   colname.id <- params$ID_Field_Name[p]
+  print(li)
+  print(ps)
   
   # open the two shapefiles
   lasindex <- shapefile(li)
   plots.all <- shapefile(ps)
   id.col <- which(colnames(plots.all@data) %in% colname.id) 
+  
+  # Add logic that checks if failed IDs are in plots.all. If so, just run those. If not, skip. 
+  # THIS SHOULD BE COMMENTED OUT when running on full data sets, along with the err.txt variable.
+  # Eventually, write this as a new script.
+
+  # if (nrow(plots.all[plots.all@data$ID_TC %in% err.ids,]) > 0) {
+    # plots.all <- plots.all[plots.all@data$ID_TC %in% err.ids,]
   
   # We only want to work with plots that intersect the lasfiles we have in the index, not
   # the whole shapefile of potentially thousands of plots.
@@ -185,6 +199,9 @@ for (p in (1:length(params$polyPath))) {
 #     FUSION_polyclipdata(polyPath=param.indiv2$polyPath[1], fieldNum=param.indiv2$ID_field_num[1], outBase=param.indiv2$outBase[1], lasList=param.indiv2$lasindex[1])
     
     }# end plot loop
+#   } else {
+#     next()
+#     } # End error redoing if - comment this out if running on entire data set.
 } # end poly loop
 
 if (deltmp == "Y") {
