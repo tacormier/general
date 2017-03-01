@@ -15,6 +15,19 @@ rescaleRas <- function(r, newmin, newmax) {
 } # end rescaleRas function
 
 
+
+################ rescaleRange #####################
+# Normalize a range of values to a new min and max
+# Arguments: r=raster layer; newmin = new minimum value (number); newmax = new maximum value (number)
+rescaleRange <- function(vec, newmin, newmax) {
+  
+  # rasterOptions(tmpdir="/home/tcormier/RasTmpDir/")
+  newrange <- c(newmin, newmax)
+  normalized = (vec - min(vec))/(max(vec) - min(vec)) * (newmax - newmin) + newmin
+  
+  return(normalized)
+} # end rescaleRange function
+
 ##################################### MAKEPROF ###########################
 # From Fabio's calc metrics code:
 #function to produce pseudo-waveforms
@@ -70,15 +83,15 @@ plotWaveform <- function(waveformDF, nameHeightCol, nameCountCol, smoothFactor=0
     #sm.line <- as.data.frame(cbind(smooth_vals[[2]], smooth_vals[[1]]))
     names(sm.line) <- c("counts", "height")
   
-    p <- ggplot(wave, aes(counts, height)) + ylim(ylim) + xlim(xlim) + geom_point()  + geom_path(data=sm.line, col="chartreuse4", size=0.5) + 
-      theme_bw() + theme(legend.position="none") 
+    p <- ggplot(wave, aes_string(wave[,nameCountCol], wave[,nameHeightCol])) + ylim(ylim) + xlim(xlim) + geom_point(size=0.5)  + geom_path(data=sm.line, col="chartreuse4", size=0.5) + 
+      theme_bw() + theme(legend.position="none") + xlab("Count") + ylab("Height (m)")
     # col="darkgray"
     # to include points too!
     #+ geom_point(size=1.5) 
   
     } else if (lineType == "exact") {
-      p <- ggplot(wave, aes(counts, height)) + ylim(ylim) + xlim(xlim) + geom_path(data=wave, col="chartreuse4", size=0.5) + 
-        theme_bw() + theme(legend.position="none") 
+      p <- ggplot(wave, aes(wave[,nameCountCol], wave[,nameHeightCol])) + ylim(ylim) + xlim(xlim) + geom_path(data=wave, col="chartreuse4", size=0.5) + 
+        theme_bw() + theme(legend.position="none") + xlab("Count") + ylab("Height (m)")
       
       # to include points too!
       #+ geom_point(size=1.5) 
@@ -99,7 +112,10 @@ plotWaveform <- function(waveformDF, nameHeightCol, nameCountCol, smoothFactor=0
     #                            gp=gpar(col="gray16")))
     #     p <- p + annotation_custom(gtxt, size=1.5)
     
-    p <- p + annotate("text",x=max(xlim),y=min(wave$height)+5,hjust=1.0,vjust=.1,label=leg.txt, size=5)
+    # Lower right corner
+    # p <- p + annotate("text",x=max(xlim),y=min(wave$height)+5,hjust=1.0,vjust=.1,label=leg.txt, size=5)
+    # Upper right corner
+    p <- p + annotate("text",x=max(xlim),y=max(ylim)-5,hjust=1.0,vjust=.1,label=leg.txt, size=5)
   } #end annotation if
   
   return(p)
