@@ -99,7 +99,7 @@ for (p in 1:length(lasfiles)) {
   
   #tile quality check
   if (!(2 %in% lasdata$c)) {log[p,1] <- 1} #No ground return
-    dummy <- c(3,4,5) %in% lasdata$c
+    dummy <- c(1,3,4,5) %in% lasdata$c
   if (vegflag == "T") {
     if (sum(dummy+0) == 0) {log[p,2] <- 1} #No vegetation return
   }

@@ -1,6 +1,7 @@
-# This logs bad tiles, but doesn't exclude them from the metrics because submitting the
-# metrics happens outside of the loop. Would be an easy fix, but pressed for time :/
-# Need to remove problem tiles from modeling tables after they process. FYI for now!
+# This logs bad tiles/plots in a log file, and if they are really bad 
+# (i.e., fail multiple quality flags), it # excludes them from the metrics.
+# Potentially need to remove other flagged/problem tiles from modeling tables after they process. 
+# FYI for now!
 
 # This script expects to receive the following variables as part of the RDATA files submitted as
 # and argument from process_tiles_lidarMetrics_FUSION_qsubWrapper.R: 
@@ -98,7 +99,7 @@ for (p in 1:length(lasfiles)) {
   
   #tile quality check
   if (!(2 %in% lasdata$c)) {log[p,1] <- 1} #No ground return
-  dummy <- c(3,4,5) %in% lasdata$c
+  dummy <- c(1,3,4,5) %in% lasdata$c
   if (vegflag == "T") {
     if (sum(dummy+0) == 0) {log[p,2] <- 1} #No vegetation return
   }
