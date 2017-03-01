@@ -51,10 +51,10 @@ dir.create(QLOG_main, showWarnings = F)
 params <- read.csv(paramfile, stringsAsFactors = F)
 
 # for now, there are 3 sites with no lasfiles - remove from params
-params <- params[-c(23, 50, 53),]
+# params <- params[-c(23, 50, 53),]
 
-# for (p in (1:nrow(params))) {
-for (p in c(1,12,29,63)) {
+for (p in (1:nrow(params))) {
+# for (p in c(1,12,29,63)) {
   param <- params[p,]
   print(param$path)
 # }
