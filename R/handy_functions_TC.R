@@ -31,12 +31,13 @@ rescaleRange <- function(vec, newmin, newmax) {
 ##################################### MAKEPROF ###########################
 # From Fabio's calc metrics code:
 #function to produce pseudo-waveforms
-
-makeprof <- function(mydata, res) { #mydata = las data, res = vertical resolution (m)
-  elev <- mydata$z
+# mydata = las data, res = vertical resolution (m), 
+# ht.col, int.col = name of height, intensity columns in lidar file
+makeprof <- function(mydata, res, ht.col, int.col) { 
+  elev <- mydata[[ht.col]]
   elev0 <- elev - min(elev) #note that 0 here is the lowest elevation, not the ground peak
-  int <- mydata$i
-  clas <- mydata$c #2 - ground, 3 - low vegetation, 4 - medium vegetation, 5 - high vegetation, etc
+  int <- mydata[[int.col]]
+  # clas <- mydata[[class.ocl]] #2 - ground, 3 - low vegetation, 4 - medium vegetation, 5 - high vegetation, etc
   breaks <- seq(min(elev0), max(elev0)+res, by=res)
   z <- breaks[2:length(breaks)]
   
@@ -84,14 +85,14 @@ plotWaveform <- function(waveformDF, nameHeightCol, nameCountCol, smoothFactor=0
     names(sm.line) <- c("counts", "height")
   
     p <- ggplot(wave, aes_string(wave[,nameCountCol], wave[,nameHeightCol])) + ylim(ylim) + xlim(xlim) + geom_point(size=0.5)  + geom_path(data=sm.line, col="chartreuse4", size=0.5) + 
-      theme_bw() + theme(legend.position="none") + xlab("Count") + ylab("Height (m)")
+      theme_bw() + theme(legend.position="none", axis.title=element_text(size=rel(0.6)), axis.text=element_text(size=rel(0.6))) + xlab("Count") + ylab("Height (m)")
     # col="darkgray"
     # to include points too!
     #+ geom_point(size=1.5) 
   
     } else if (lineType == "exact") {
       p <- ggplot(wave, aes(wave[,nameCountCol], wave[,nameHeightCol])) + ylim(ylim) + xlim(xlim) + geom_path(data=wave, col="chartreuse4", size=0.5) + 
-        theme_bw() + theme(legend.position="none") + xlab("Count") + ylab("Height (m)")
+        theme_bw() + theme(legend.position="none", axis.title=element_text(size=rel(0.6)), axis.text=element_text(size=rel(0.6))) + xlab("Count") + ylab("Height (m)")
       
       # to include points too!
       #+ geom_point(size=1.5) 
@@ -104,7 +105,7 @@ plotWaveform <- function(waveformDF, nameHeightCol, nameCountCol, smoothFactor=0
   # + scale_colour_gradient2(low="tan4", mid="darkkhaki", high="chartreuse4",midpoint=sm.line$height[median(sm.line$counts)]) +
   
   if (!is.null(plot.title)) {
-    p <- p + ggtitle(plot.title) 
+    p <- p + ggtitle(plot.title) + theme(plot.title = element_text(size = rel(0.65))) # The + theme() is for when you are plotting a zillion on a page - can comment out otherwise
   }
   
   if (!is.null(leg.txt)) {
@@ -115,7 +116,7 @@ plotWaveform <- function(waveformDF, nameHeightCol, nameCountCol, smoothFactor=0
     # Lower right corner
     # p <- p + annotate("text",x=max(xlim),y=min(wave$height)+5,hjust=1.0,vjust=.1,label=leg.txt, size=5)
     # Upper right corner
-    p <- p + annotate("text",x=max(xlim),y=max(ylim)-5,hjust=1.0,vjust=.1,label=leg.txt, size=5)
+    p <- p + annotate("text",x=max(xlim),y=max(ylim)-10,hjust=1.0,vjust=.1,label=leg.txt, size=1.95)
   } #end annotation if
   
   return(p)
@@ -747,8 +748,11 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
 
 ################# las2tiles ################# 
 #
-# This function was adapted from a windows batch file written by Fabio.
-# The function first validates the las tiles. Then it merges them into one .laz
+# This function was adapted from a windows batch script written by Fabio.
+# This function uses LAStools, which must be installed on the system and links updated
+# if the function is moved.
+#
+# Frst we validate the las tiles. Then merge them into one .laz
 # file for tiling. The merged file is then cut into tiles of a size specified by 
 # the user. The tiled las files are converedted to .txt files as well as tifs.
 # The user has the option to remove the tiled las files or keep them. 
@@ -783,26 +787,26 @@ las2tiles <- function(lasdir, tilesize, rawFormat='las', utmZone, siteID, rm.tmp
   lasfiles <- list.files(lasdir, p, full.names=T)
   
   # check files (http://rapidlasso.com/2013/04/20/tutorial-quality-checking/)
-  info.cmd <- paste0("/mnt/s/LAStools/bin/lasinfo -i ", lasdir, "/*.", rawFormat, " -compute_density")
-  system(info.cmd)
-  
+#   info.cmd <- paste0("/mnt/a/tcormier/LAStools/bin/lasinfo.exe -i ", lasdir, "/*.", rawFormat, " -compute_density")
+#   system(info.cmd)
+#   
   # lasview currently fails on the linux side because it tries to open an X 
   # window and can't. 
-  val.cmd <- paste0("wine /mnt/s/LAStools/bin/lasvalidate.exe -i ", lasdir, "/*.", rawFormat, " -oxml")
-  system(val.cmd)
-#   view.cmd <- paste0("wine /mnt/s/LAStools/bin/lasview.exe -i ", lasdir, "/*.", rawFormat, " -gui")
+  val.cmd <- paste0("/usr/bin/wine /mnt/a/tcormier/LAStools/bin/lasvalidate.exe -i ", lasdir, "/*.", rawFormat, " -oxml")
+  system.time(system(val.cmd))
+#   view.cmd <- paste0("wine /mnt/a/tcormier/LAStools/bin/lasview.exe -i ", lasdir, "/*.", rawFormat, " -gui")
 #   system(view.cmd)
   
   # Merge files before using lastile. lastile could do it all, but it doesn't work sometimes
-  merge.cmd <- paste0("/mnt/s/LAStools/bin/lasmerge -i ", lasdir, "/*.", rawFormat, " -odir ", lasdir, " -o merge.laz")
+  merge.cmd <- paste0("/mnt/a/tcormier/LAStools/bin/lasmerge.exe -i ", lasdir, "/*.", rawFormat, " -odir ", lasdir, " -o merge.laz")
   system(merge.cmd)
   
   # Tile all points from all files using a tile size of tileszie
-  tile.cmd <- paste0("/usr/bin/wine /mnt/s/LAStools/bin/lastile.exe -i ", lasdir, "/merge.laz -odir ", tmpdir, " -tile_size ", tilesize, " -olas -o ", siteID, " -rescale 0.01 0.01 0.01")
+  tile.cmd <- paste0("/usr/bin/wine /mnt/a/tcormier/LAStools/bin/lastile.exe -i ", lasdir, "/merge.laz -odir ", tmpdir, " -tile_size ", tilesize, " -olas -o ", siteID, " -rescale 0.01 0.01 0.01")
   system(tile.cmd)
   
   # convert las2txt
-  txt.cmd <- paste0("/mnt/s/LAStools/bin/las2txt -i ", tmpdir, "*.las -odir ", tiledir, " -parse xyzianrc -sep comma")
+  txt.cmd <- paste0("/mnt/a/tcormier/LAStools/bin/las2txt.exe -i ", tmpdir, "*.las -odir ", tiledir, " -parse xyzianrc -sep comma")
   system(txt.cmd)
   
   # Make a grid for use in R
@@ -813,7 +817,7 @@ las2tiles <- function(lasdir, tilesize, rawFormat='las', utmZone, siteID, rm.tmp
   writeLines(laslist, fileConn)
   close(fileConn)
   
-  grid.cmd <- paste0("/usr/bin/wine /mnt/s/LAStools/bin/lasgrid.exe -lof ", tmplaslist, " -odir ", geodir, " -merged -o ", siteID, "_grid.tif -step ", tilesize, " -utm ", utmZone, " -counter_32bit")
+  grid.cmd <- paste0("/usr/bin/wine /mnt/a/tcormier/LAStools/bin/lasgrid.exe -lof ", tmplaslist, " -odir ", geodir, " -merged -o ", siteID, "_grid.tif -step ", tilesize, " -utm ", utmZone, " -counter_32bit")
   system(grid.cmd)
   if (rm.tmp == T) unlink(tmplaslist)
   
@@ -1159,5 +1163,9 @@ stripExtBase <- function(filename) {
   return(x)
 }
 
-
+#################### reproject las file using LAStools #####################
+lasReproject <- function(lasfile, t_epsg, outfile) {
+  
+  
+} # end lasReproject
 
