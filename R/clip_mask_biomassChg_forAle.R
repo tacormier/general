@@ -131,6 +131,7 @@ writeRaster(br, paste0(outdir, "final/Biomass_2003-2014.tif"), datatype="INT2U",
 # AND the 2007 total from the original pan-tropical biomass map ca. 2007.
 library(ggplot2)
 library(hexbin)
+library(raster)
 
 
 yr=8
@@ -142,8 +143,62 @@ dir.create(outdir)
 chg.2007 <- raster("/mnt/a/tcormier/for_Ale/bio_mask_clip/mosaics_masked_clipped/de2007_mc.tif")
 chg.2007.all <- raster("/mnt/a/tcormier/for_Ale/bio_mask_clip/mosaics/de2007.vrt")
 orig.2007 <- raster("/mnt/a/biov2/america/am_biov2ct1.tif")
+# Diff - whole SA. (calculated this in QGIS after this analysis was initially done - revisiting 3/20/17
+# because I need to mask the diff layer by the change - want only change pixels).
+# diff <- raster("/mnt/a/tcormier/for_Ale/bio_mask_clip/check_annVsOrigPantrop/diff.tiff")
+# diff.resamp <- resample(diff, chg.2007.all, method='ngb')
+# diff.resamp[is.na(chg.2007.all)] <- NA
 
-b <- readShapePoly(boundfile)
+orig.2007.resamp <- resample(orig.2007, chg.2007.all, method='ngb')
+orig.2007.resamp[is.na(chg.2007.all)] <- NA
+chg.2007.all[is.na(orig.2007.resamp)] <- NA
+
+
+# Calc new diff for entire basin
+orig.minus.new <- orig.2007.resamp - chg.2007.all
+writeRaster(orig.minus.new, paste0(outdir, "orig_minus_new_all.tif"), datatype=dataType(orig.minus.new), overwrite=T)
+
+# Now create a masked version - masked only to changes (see gains and loss rasters above)
+fun <- function(x) { x[x!=0] <- 1; return(x) }
+beginCluster()
+
+g1 <- clusterR(g, calc, args=list(fun=fun))
+l1 <- clusterR(l, calc, args=list(fun=fun))
+# done with cluster object
+# endCluster()
+
+# Not the most efficient way of doing this, but for some reason, simply summing them
+# is resulting in all NAs (oh, bc where it is 1 in one raster, it's NA in the other DURRR).
+m1 <- l1
+m1[g1 == 1] <- 1
+
+# A little QA to make sure the mask is correct - these should both return TRUE:
+# takes a bit of time, but need to be sure!
+# identical(m1[g1==1], g1[g1==1])
+# identical(m1[l1==1], l1[l1==1])
+
+# masking by complex polygon boundary is time intensive, so only want to do it once here - 
+# not to individual inputs and not as an extra step at the end.
+# beginCluster()
+# m <- mask(m1, b)
+m <- clusterR(m1, mask, args=list(mask=b))
+
+# For masking full image (not clipped to amazon)
+m1[m1 == 0] <- NA
+# orig.2007.resamp.mask <- clusterR(orig.2007.resamp, mask, args=list(mask=m1))
+# chg.2007.all.mask <- clusterR(chg.2007.all, mask, args=list(mask=m1))
+endCluster()
+
+orig.2007.resamp.mask <- mask(orig.2007.resamp, m1)
+chg.2007.all.mask <- mask(chg.2007.all, m1)
+writeRaster(orig.2007.resamp.mask, paste0(outdir, "orig_2007_maskChg.tif"), datatype=dataType(orig.2007))
+writeRaster(chg.2007.all.mask, paste0(outdir, "chgAnalysis_2007_maskChg.tif"), datatype=dataType(chg.2007.all))
+
+diff.mask <- orig.2007.resamp.mask - chg.2007.all.mask
+writeRaster(diff.mask, paste0(outdir, "orig_minus_new_maskChg.tif"), datatype="INT2S")
+
+
+b <- shapefile(boundfile)
 
 # crop orig to chg
 orig.crop <- crop(orig.2007, b)
