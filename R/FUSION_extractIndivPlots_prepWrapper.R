@@ -19,13 +19,14 @@ Sys.setenv(SGE_CELL="Grid-Cell-01")
 # paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/FUSION_extractPlots_params/extract_infys_20150918.csv"
 # paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/G-LiHT/field_lidar_intersect/FUSION_extractPlots_params_20151110/G-LiHT_params_20151110.csv"
 # paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/FUSION_extractPlots_params/extract_workshopArea_20160401.csv"
-paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/FUSION_extractPlots_params/extract_CMS_allPlots_20170215.csv"
+# paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/FUSION_extractPlots_params/extract_CMS_MISSING_Plots_from_20170314.csv"
+paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/FUSION_extractPlots_params/extract_CMS_allPlots_20170314.csv"
 # 
 # Minimum area of lidar coverage within plot (as a percentage)
 min.area <- 95
 
 # outdir <- "/mnt/a/tcormier/Mexico_CMS/lidar/G-LiHT/field_lidar_intersect/" Does not need to exist.
-outdir <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/all_20170215/"
+outdir <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/all_20170314/"
 
 # Do the laslists need to be reformated to run windows tool with wine? (see function documentation)? Y or N?
 reform <- 'Y'
@@ -34,10 +35,10 @@ reform <- 'Y'
 deltmp <- 'N'
 
 #where do you want to store the qsub logs? Directory. Does not have to exist already.
-QLOG <- "/mnt/a/tcormier/scripts/logs/CMS_lidarExtract/resubmit1/"
+QLOG <- "/mnt/a/tcormier/scripts/logs/CMS_lidarExtract/20170317_redoMissing_UTM_debacle/"
 
 # txt file of IDs that errored - later, take this out and make it its own script.
-# error.txt <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/all_20170215/error_files/missingIDs.txt"
+# error.txt <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/all_20170314/error_files/missingIDs.txt"
 
 ##########################################
 # Make some directories
@@ -139,7 +140,7 @@ for (p in (1:length(params$polyPath))) {
   
   if (nrow(plots.complete) == 0) next()
     
-    shapefile(plots.complete, paste0(comp.dir, "complete_plots_", basename(li)) , overwrite = T)
+  shapefile(plots.complete, paste0(comp.dir, "complete_plots_", basename(li)) , overwrite = T)
   
   # loop over each plot
   for (pl in (1:nrow(plots.complete))) {
@@ -199,9 +200,9 @@ for (p in (1:length(params$polyPath))) {
 #     FUSION_polyclipdata(polyPath=param.indiv2$polyPath[1], fieldNum=param.indiv2$ID_field_num[1], outBase=param.indiv2$outBase[1], lasList=param.indiv2$lasindex[1])
     
     }# end plot loop
-#   } else {
-#     next()
-#     } # End error redoing if - comment this out if running on entire data set.
+  # } else { # part of error redoing - comment this out if running on entire data set.
+    # next() # part of error redoing - comment this out if running on entire data set.
+    # } # End error redoing if - comment this out if running on entire data set.
 } # end poly loop
 
 if (deltmp == "Y") {
