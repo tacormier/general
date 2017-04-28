@@ -5,6 +5,7 @@ library(raster)
 library(pbapply)
 library(rgdal)
 library(stringr)
+library(gtools)
 
 source("/mnt/a/tcormier/scripts/general/R/handy_functions_TC.R")
 rasterOptions(tmpdir="/home/tcormier/RasTmpDir/")
@@ -12,9 +13,9 @@ rasterOptions(tmpdir="/home/tcormier/RasTmpDir/")
 # do you want to create the profile or does it already exist ("y" or "n")
 createprof <- "n"
 # if profiles already exist, in what directory?
-prof.file <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/all_20170215/norm_fil/filtered_las_profiles/"
+prof.file <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/all_20170314/norm_fil/filtered_las_profiles/"
 # line type = "smooth" or "exact"
-lineType <- "smooth"
+lineType <- "exact"
 smoothVal <- 0.15
 #ylim.waves <- c(0,80)
 #xlim.waves <- c(0,200)
@@ -23,7 +24,7 @@ indir <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/extract_2
 #indir <- "/mnt/r/Mex_Lidar/Cartodata/Campeche_Yucatan/LAS/Q1/Tiles_50m/"
 #indir <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/txt/CampecheYucatan/"
 # csv or shapefile - gets identifying info from shapefile to title the plot
-plotfile <- "/mnt/a/tcormier/Mexico_CMS/field/points_wgs84_updatedFields_points/CMS_FieldPoints_wgs84_updatedFields_20170228.shp"
+plotfile <- "/mnt/a/tcormier/Mexico_CMS/field/points_wgs84_updatedFields_points/CMS_FieldPoints_wgs84_updatedFields_20170228_ecoRegions.shp"
 figdir <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/all_20170215/norm_fil/filtered_las_waveform_plots/"
 binsize <- 0.5 #vertical resolution of profile (m)
 
@@ -76,16 +77,21 @@ if (!is.null(plotfile)) {
   }
 }
 
-  # Build a name for the profile - specific to mexico
-  prof.id1 <- basename(plotlas.files)
-  prof.id <- sapply(strsplit(prof.id1, "_"), function(x) x[[2]])
-  # Use a regex to get site name
-  prof.site1 <- sub(".*CMS_FieldPolygons_updatedFields_20160727_UTM\\d{2}_", "", basename(plotlas.files))
-  prof.site <- sub("_UTM\\d{2}N_groundIndex_profile\\.csv", "", prof.site1)
-  sites <- paste0("ID_TC_", prof.id, "_", prof.site)
-  # get site names from profile names
-  # sites <- pblapply(plotlas.files, sitenames)
-  names(profile) <- sites
+# Remove commas from NAME_L3 field
+# # remove plot 227 bc it's whack (height > 500).
+# profile <- profile[-227]
+# plotlas.files <- plotlas.files[-227]
+
+# Build a name for the profile - specific to mexico
+prof.id1 <- basename(plotlas.files)
+prof.id <- sapply(strsplit(prof.id1, "_"), function(x) x[[2]])
+# Use a regex to get site name
+prof.site1 <- sub(".*CMS_FieldPolygons_updatedFields_20160727_UTM\\d{2}_", "", basename(plotlas.files))
+prof.site <- sub("_UTM\\d{2}N_groundIndex_profile\\.csv", "", prof.site1)
+sites <- paste0("ID_TC_", prof.id, "_", prof.site)
+# get site names from profile names
+# sites <- pblapply(plotlas.files, sitenames)
+names(profile) <- sites
 # } else {
 #   sites <- lapply(plotlas.files, basename)
 #   # n <- lapply(plotlas, nrow)
@@ -104,8 +110,7 @@ profile <- mapply(cbind, profile, "ID"=as.numeric(prof.id), SIMPLIFY=F)
 profile <- pblapply(profile, function(x) merge(x, plots@data, by.x="ID", by.y="ID_TC", all.x=T))
 counts_size <- pblapply(profile, function(x) x$counts/x$Plot_m2)
 profile <- mapply(cbind, profile, "counts_size"=(counts_size), SIMPLIFY=F)
-# remove plot 223 bc it's whack.
-profile <- profile[-223]
+
 
 # xmax <- roundUp(pbsapply(do.call("rbind",profile),max)[2],to = 5)
 # ymax <- roundUp(as.numeric(pbsapply(do.call("rbind",profile),max))[2],to = 5)
@@ -146,8 +151,21 @@ norm.add2Prof <- mapply(cbind, profile, "norm_counts"=norm.count, SIMPLIFY=F)
 # profile.orig <- profile
 profile <- norm.add2Prof
 
+# some list sorting
+names(profile) <- sites
+# get ecoregion
+eco.list <- lapply(profile, function(x) x$eco_NM_L2[1])
+# Set new names for the profile:
+names(profile) <- paste0(eco.list, "_", sites)
+# prof.sort.id <- sort(as.numeric(prof.id))
+prof.sort.names <- mixedsort(names(profile))
+prof.sort <- profile[match(prof.sort.names, names(profile))]
+
+profile <- prof.sort
+
+
 xmax <- 1
-ymax <- 50
+ymax <- 550
 xlim.waves <- c(0,xmax)
 ylim.waves <- c(0,ymax)
 
@@ -167,16 +185,24 @@ plotlist <- list()
 for (i in 1:length(profile)) {
   #hack
   prof <- profile[[i]]
-  site <- names(profile[i])
+  # site <- sub('.*_ID_TC_[0-9]+_', '', names(profile[i]))
+  site <- sub('.*UTM[0-9]+_', '', names(profile[i]))
+  id.m <- regexpr("ID_TC_[0-9]+", names(profile[i]))
+  id <- sub("ID_TC_", "", regmatches(names(profile[i]), m = id.m))
+  eco <- sub('_ID_TC.*', '', names(profile[i]))
+  fld.camp <- gsub("_", " ", sub(".*- ", "", prof$Source[1]))
   #ANOTHER WICKED HACK to make the x axis a bit smaller
   # prof$counts[prof$counts > xmax] <- xmax
   prof$norm_counts[prof$norm_counts > xmax] <- xmax
   #used sprintf to keep trailing zeros
   # id <- sub("_", "", str_extract(site, "_[0-9]+"))
-  id <- prof.id[i]
-  title <- paste0(gsub("_", " ", prof.site[i]), "\nID ", gsub("_", " ", id))
+  # id <- prof.id[i]
+  
+  
+  title <- paste0(str_wrap(eco, 32), "\n", str_wrap(gsub("_", " ", site), 50), "\nID ", gsub("_", " ", id))
   
   biomass <- sprintf("Field AGB = %.2f Mg/ha", round(plots@data$Bio_MgHa[plots@data$ID_TC == id], digits=2))
+  # ecoregion <- prof$eco_NM_L3[1]
   #tree.ht <- sprintf("%.2f", round(plots$Tree_Hei_2[plots$PlotID == site], digits=2))
   # A little check:
   # ch1 <- paste0("site = ", site, ". Field layer biomass = ", plots@data$Bio_MgHa[plots@data$Bio_MgHa == id], ".")
@@ -187,31 +213,34 @@ for (i in 1:length(profile)) {
   # Add text to plot (still working on making this prettier - a little bit of a hack w/ adding spaces to 
   # make things sort of line up better.)
   # annotation <- paste0("Field Data:              \nTallest Tree = ", tree.ht, " m \nAGB = ", biomass, " MgC/ha")
-  annotation <- biomass
+  # annotation <- biomass
+  annotation <- paste0(biomass, "\n", fld.camp)
   plotlist[[i]] <- plotWaveform(prof, nameHeightCol="height",nameCountCol="norm_counts", plot.title=title, leg.txt = annotation, 
                                 ylim=ylim.waves, xlim=xlim.waves, lineType=lineType, smoothFactor = smoothVal)
-  # print(plotlist[[i]])
+  print(plotlist[[i]])
   # Sys.sleep(3)
   
 } #end profile loop
 
+
+# ggsave(filename = paste0(figdir, "/CMS_FieldPlot_waveforms_", lineType,"_plot307_500mHt.pdf"), height=6, width = 6)
 # # PRINT 2x2 per page of a pdf!
 # args.list <- c(plotlist, 2,2)
 # names(args.list) <- c(1:length(plotlist), "nrow", "ncol")
 # ggsave(paste0(figdir, "waveform_plots_SEAsia_", lineType, "Lines_10.pdf"), do.call("marrangeGrob", args.list), height=8, width=8)
 #ggsave(paste0(figdir, "waveform_plots_SEAsia_", lineType, "Lines_10.pdf"), plotlist, height=8, width=8)
 # filename <- paste0(figdir, "/CMS_FieldPlot_waveforms_", lineType,"_", sub("\\.", "", smoothVal), ".pdf")
-filename <- paste0(figdir, "/CMS_FieldPlot_waveforms_", lineType,"_divPlotSize_norm0-1", ".pdf")
+filename <- paste0(figdir, "/CMS_FieldPlot_waveforms_", lineType,"_divPlotSize_norm0-1_16perpage_ecoL2_redo_20170323", ".pdf")
 
-pdf(file=filename, onefile=T, width=8, height=8)
-pgsetup <- seq(from=1, to=length(plotlist), by=4)
+pdf(file=filename, onefile=T, width=8.25, height=10.5)
+pgsetup <- seq(from=1, to=length(plotlist), by=16)
 for (pl in pgsetup) {
   if (pl != pgsetup[length(pgsetup)]) {
-  plot.pg <- plotlist[pl:(pl+3)]
+  plot.pg <- plotlist[pl:(pl+15)]
   } else {
     plot.pg <- plotlist[pl:(length(plotlist))]
   }
-  multiplot(plotlist=plot.pg, layout=matrix(c(1,2,3,4), byrow=T, nrow=2))
+  multiplot(plotlist=plot.pg, layout=matrix(c(1:16), byrow=T, nrow=4))
 }
 dev.off()
 #ggsave(paste0(figdir, "waveform_plots_SEAsia_", lineType, ".pdf"), multiplot(plotlist=plotlist, cols=2, nrow=2),height=8, width=8) 
