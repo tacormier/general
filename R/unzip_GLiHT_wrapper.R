@@ -5,7 +5,7 @@ main.dir <- "/mnt/r/Mex_Lidar/G_LiHT/"
 subdirs <- list.dirs(main.dir, full.names=T, recursive = F)
 
 # We want to unzip just the las files and the DTMs
-i=subdirs[1]
+i=subdirs[20]
 # for (i in subdirs) {
   lasfiles <- list.files(paste0(i, "/lidar/las/"), "*.gz$", full.names=T)
   for (l in lasfiles) {
@@ -28,4 +28,4 @@ i=subdirs[1]
                    "/mnt/s/bin/jqsub /mnt/a/tcormier/scripts/general/bash/unzip.sh", tf, tf.outdir)
     system(tf.cmd)
   } # end terrain file loop
-}# end subdir loop
+# }# end subdir loop
