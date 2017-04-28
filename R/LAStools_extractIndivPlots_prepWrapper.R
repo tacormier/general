@@ -1,4 +1,4 @@
-# This script calls the /mnt/a/tcormier/scripts/general/R/FUSION_extractPlots.R and submits each plot 
+# This script calls the /mnt/a/tcormier/scripts/general/R/LAStools_extractPlots.R and submits each plot 
 # from each polygon file in paramfile to the cluster as a separate job.
 #
 # library(rgdal)
@@ -19,13 +19,14 @@ Sys.setenv(SGE_CELL="Grid-Cell-01")
 # paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/FUSION_extractPlots_params/extract_infys_20150918.csv"
 # paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/G-LiHT/field_lidar_intersect/FUSION_extractPlots_params_20151110/G-LiHT_params_20151110.csv"
 # paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/FUSION_extractPlots_params/extract_workshopArea_20160401.csv"
-paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/FUSION_extractPlots_params/extract_CMS_allPlots_20170215.csv"
+paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/FUSION_extractPlots_params/extract_CMS_allPlots_20170314.csv"
 # 
 # Minimum area of lidar coverage within plot (as a percentage)
 min.area <- 95
 
 # outdir <- "/mnt/a/tcormier/Mexico_CMS/lidar/G-LiHT/field_lidar_intersect/" Does not need to exist.
-outdir <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/all_20170215_LAStools/"
+# outdir <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/all_20170215_LAStools/"
+outdir <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/all_20170314_LAStools/not_norm_unfil/"
 
 # Do the laslists need to be reformated to run windows tool with wine? (see function documentation)? Y or N?
 reform <- 'N'
@@ -34,7 +35,7 @@ reform <- 'N'
 deltmp <- 'N'
 
 #where do you want to store the qsub logs? Directory. Does not have to exist already.
-QLOG <- "/mnt/a/tcormier/scripts/logs/CMS_lidarExtract_LAStools/"
+QLOG <- "/mnt/a/tcormier/scripts/logs/CMS_lidarExtract_LAStools_20170314/"
 
 ##########################################
 # Make some directories
