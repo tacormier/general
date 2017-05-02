@@ -1,4 +1,4 @@
-# Using the metrics parameter file submitted to process_lidarMetrics_byFile.R, 
+# Using the metrics parameter file submitted to process_lidar_NormFilMetrics_byFile.R, 
 # check if all lidar files were processed and produced a mets file. If not,
 # continue putting the table together, but give a warning and write to fail
 # file for further investigation.
