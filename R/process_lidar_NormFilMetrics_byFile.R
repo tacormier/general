@@ -25,6 +25,13 @@ if (normalize == 'Y') {
   print(paste0("Normalizing ", las2norm.file))
   # Normalize lasfile
   las2norm <- readLAS(las2norm.file)
+  
+  # let's first snag the mean elevation for the tile/plot. Need to put it here
+  # because if file is already normalized, can't get at raw elevation.
+  # ***** Did not yet write something at the end to append this to the table*****
+  elev <- mean(las2norm@data$Z[las2norm@data$Classification == 2], na.rm=T)
+  
+  # now normalize
   dtm <- raster(dtm.file)
   
   # Use DTM to normalize las
@@ -77,7 +84,6 @@ if (QA.flags == 'Y') {
   colnames(log) <- c("no_ground", "no_veg", dummyn1, "ptden", dummyn2, dummyn3, dummyn4, dummyn5, "dummyn6", "htamp", "nodata", "absmaxht")
   ptden <- array(NA, length(las2qa.file))
   
-  print(paste0("Filtering: ", las2qa.file))
   tc.log$lf <- las2qa.file
   
   # Some gymnastics with the lasfile to make it work with existing code - hack.
