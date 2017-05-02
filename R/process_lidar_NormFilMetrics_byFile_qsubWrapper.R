@@ -148,14 +148,14 @@ for (p in (1:nrow(params))) {
       
       # set other output file names
       if (saveprof == "Y") {
-        profname <- paste0(profdir, stripExtBase(i), "_profile.csv")
+        profname <- paste0(profdir, stripExtBase(lf), "_profile.csv")
       } else {
         profname <- NA
       }
       
       saveWave <- param$saveWave
       if (saveWave == "Y") {
-        wavename <- paste0(wavedir, stripExtBase(i), "_waveform.pdf")
+        wavename <- paste0(wavedir, stripExtBase(lf), "_waveform.pdf")
       } else {
         wavename <- NA
       }
