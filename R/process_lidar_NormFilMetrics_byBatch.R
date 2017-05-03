@@ -478,6 +478,9 @@ for (r in (1:length(rdata.files))) {
   }
 }
 
+############## Output File Copying to Somewhere - either storage bucket or back to cluster ####################
+
+
 
 
 
