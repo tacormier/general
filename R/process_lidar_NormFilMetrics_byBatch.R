@@ -26,6 +26,10 @@ if (normalize == 'Y') {
   dtm <- raster(dtm.file)
 }
 
+if (calc.mets == 'Y' & (met.type == 'prof-based' | met.type == 'both')){
+  library(signal)
+}
+
 # Loop over rdata files
 for (r in (1:length(rdata.files))) {
   #Already opened file #1, so skip that one.
@@ -283,7 +287,6 @@ for (r in (1:length(rdata.files))) {
     } # end profile and waveform generation if applicable
     
     if (met.type == "prof-based" | met.type == "both") {
-      require(signal)
       #define metrics, etc
       freq <- seq(0.01, 0.3, by=0.001) #maybe use 0.0001 to make sure we have no phase jumps? Depends on processing time. If 0.0001 is used, changes are needed below
       nf <- length(freq)

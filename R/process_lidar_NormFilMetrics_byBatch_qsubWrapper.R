@@ -14,7 +14,7 @@ dir.create(QLOG, showWarnings = F)
 
 params <- read.csv(paramfile, stringsAsFactors = F)
 
-# p=33
+p=2
 for (p in (1:nrow(params))) {
   
   param <- params[p,]
@@ -103,6 +103,14 @@ for (p in (1:nrow(params))) {
   # Grab a batch of files to submit to worker
   batches <- split((1:length(lasfiles.all)), ceiling(seq_along((1:length(lasfiles.all)))/batchsize))
   
+  ###################### Copy files from storage to VM ############################
+  
+  
+  
+  
+  #################################################################################
+  # Loop over batches of lasfiles, write out text file of rdata paths for each las file
+  # in the batch, then submit to worker.
   for (b in (1:length(batches))) {
     lasfiles <- lasfiles.all[batches[[b]]]
     rdata.list <- vector()
@@ -187,10 +195,18 @@ for (p in (1:nrow(params))) {
       
     } # end i loop
     
+    rdata.txt <- paste0(rdata.dir, param$region, "_rdataList_", b, ".txt")
+    write.table(rdata.list, rdata.txt, col.names = F, quote = F, row.names = F)
+    
     # grid engine job name
-    jobname <- paste0(stripExtBase(lasfiles[1]), "_normFilMetrics_batch_", batchsize, "_b", b)
-    sys.call <- paste("/net/share-2/export/HomeDir/sge6.2/bin/lx24-amd64/qsub -b yes -l rdisk=2G -q dev.q -V -N", jobname, "-o",QLOG, "-e", QLOG, 
-                      "/mnt/s/bin/jqsub 'R --vanilla --slave < /mnt/a/tcormier/scripts/general/R/process_lidar_NormFilMetrics_byFile.R' --args", out.rdata)
+    len <- length(unlist(strsplit(stripExtBase(lasfiles[1]), "_")))
+    jobname <- paste0(paste(unlist(strsplit(stripExtBase(lasfiles[1]), "_"))[-c(len-1, len)], collapse="_"), "_normFilMetrics_batch_", batchsize, "_b", b)
+    sys.call <- paste("/net/share-2/export/HomeDir/sge6.2/bin/lx24-amd64/qsub -b yes -l rdisk=2G -q prod.q -V -N", jobname, "-o",QLOG, "-e", QLOG, 
+                      "/mnt/s/bin/jqsub 'R --vanilla --slave < /mnt/a/tcormier/scripts/general/R/process_lidar_NormFilMetrics_byBatch.R' --args", rdata.txt)
     system(sys.call)
   }
 }
+
+
+
+
