@@ -406,13 +406,16 @@ if (calc.mets == 'Y') {
     # Fix file paths:
     f.metrics$fusion_DataFile <- gsub("Z:", "", f.metrics$fusion_DataFile)
     f.metrics$fusion_DataFile <- gsub("\\\\\\\\", "/", f.metrics$fusion_DataFile)
-    
+    # Add elevation field
+    f.metrics$mean_elevation <- elev
     write.csv(f.metrics, file=out.mets, row.names=F, quote=F)
     
   } else if (met.type == 'prof-based') {
     #save results
     prof.metrics <- cbind.data.frame(las2mets.file, trad, amp, pha_unw)
     names(prof.metrics) <- paste0("prof-based_", names(prof.metrics))
+    # Add elevation field
+    prof.metrics$mean_elevation <- elev
     write.csv(prof.metrics, file=out.mets, row.names=F, quote=F)
     
   } else if (met.type == 'both') {
@@ -435,6 +438,8 @@ if (calc.mets == 'Y') {
     
     # Put tables together in harmony
     mets.final <- cbind.data.frame(prof.metrics, f.metrics)
+    # All elevation field
+    mets.final$mean_elevation <- elev
     write.csv(mets.final, file=out.mets, row.names=F, quote=F)
   }
   
