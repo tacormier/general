@@ -28,7 +28,6 @@ if (normalize == 'Y') {
   
   # let's first snag the mean elevation for the tile/plot. Need to put it here
   # because if file is already normalized, can't get at raw elevation.
-  # ***** Did not yet write something at the end to append this to the table*****
   elev <- mean(las2norm@data$Z[las2norm@data$Classification == 2], na.rm=T)
   
   # now normalize
@@ -36,13 +35,24 @@ if (normalize == 'Y') {
   
   # Use DTM to normalize las
   lasnorm <- lasnormalize(las2norm, dtm)
-  writeLAS(lasnorm, outnorm)
-    
+  
+  if (!is.null(lasnorm)) {
+    writeLAS(lasnorm, outnorm)
+  } else {
+    normlog <- "normfile-failed"
+    normlog.df <- cbind.data.frame(las2norm.file, normlog)
+    names(normlog.df) <- c("lf", "norm_status")
+    normlog.file <- paste0(normlog.dir, stripExtBase(las2norm.file), "_normlog.txt")
+    write.table(normlog.df, normlog.file, row.names=F, quote=F)
+    stop("all data were null in DTM - normalization failed.")
+  }
+  
   if (file.exists(outnorm)) {
     normlog <- "normfile-created"
   } else {
     normlog <- "normfile-failed"
   }
+  
   normlog.df <- cbind.data.frame(las2norm.file, normlog)
   names(normlog.df) <- c("lf", "norm_status")
   normlog.file <- paste0(normlog.dir, stripExtBase(las2norm.file), "_normlog.txt")
@@ -125,10 +135,10 @@ if (QA.flags == 'Y') {
   
   #get point density
   ptden <- nrow(lasdata)/(lasarea(las2qa))
-  if (ptden < min_ptden) {log[,3] <- 1; log[,4] <- ptden}
+  if (ptden < min_ptden | lasarea(las2qa) == 0) {log[,3] <- 1; log[,4] <- ptden}
   
   # Stop if there is no ground or vegetation return, or if more than 2% of the normalized heights are outliers
-  if (sum(log[, c(1,2,5,7)]) >= 1) {
+  if (sum(log[, c(1,2,5,7)]) >= 1 | la == 0) {
     tc.log$QA_status <- "failed_QA"
     write.table(tc.log, file=tc.log.file, row.names=F, quote=F, sep=",")
     log <- cbind.data.frame(lf=las2qa.file, log)
