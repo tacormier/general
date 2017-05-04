@@ -3,7 +3,7 @@
 # continue putting the table together, but give a warning and write to fail
 # file for further investigation.
 
-paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/parameter_files/CMS_metrics/CMS_plot_metrics_params_20170410_ALL.csv"
+paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/parameter_files/CMS_metrics/CMS_tile_metrics_params_20170410_ALL_Jalisco.csv"
 
 # Do you want to link up your field data now? (Y/N = case sensitive)
 link <- "Y"
@@ -19,11 +19,20 @@ lf.field <- "prof.based_lf"
 
 params <- read.csv(paramfile, stringsAsFactors = F)
 
+p=1
 for (p in (1:nrow(params))) {
   param <- params[p,]
   # This part is taken from process_plots_lidarMetrics_byFile_qsubWrapper.R - may need to be tweaked for tiles.
-  outdir.m <- paste0(param$outdir, "/metrics/")
+  # outdir.m <- paste0(param$outdir, "/metrics/")
   lasfiles <- list.files(param$path, "*.las$", full.names=T)
+  
+  if (param$normalize == 'Y') {
+    # check if all tiles were normalized
+    normdir <- param$normdir
+    normlas <- list.files(normdir, "*.las$")
+  }
+  
+  
   
   metfiles <- list.files(outdir.m, "*_metrics.csv$", full.names=T)
   
