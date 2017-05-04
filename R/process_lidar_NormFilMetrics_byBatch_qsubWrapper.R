@@ -1,20 +1,20 @@
 source("/mnt/a/tcormier/scripts/general/R/handy_functions_TC.R")
 
 # User Variables
-paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/parameter_files/CMS_metrics/CMS_tile_metrics_params_20170410_ALL_Jalisco.csv"
+paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/parameter_files/CMS_metrics/CMS_tile_metrics_params_20170502_ALL.csv"
 
 # How many lasfiles do you want to submit to the worker script at once?
-batchsize <- 500
+batchsize <- 250
 
 # grid engine log file directory 
-QLOG <- "/mnt/a/tcormier/scripts/logs/CMS_TEST_batch/"
+QLOG <- "/mnt/a/tcormier/scripts/logs/CMS_normFilMetrics_batch/"
 #######################################################################
 dir.create(QLOG, showWarnings = F)
 # dir.create(lasnormdir, showWarnings = F)
 
 params <- read.csv(paramfile, stringsAsFactors = F)
 
-p=2
+p=23
 for (p in (1:nrow(params))) {
   
   param <- params[p,]
@@ -31,6 +31,7 @@ for (p in (1:nrow(params))) {
   calc.mets <- param$calcMets
   saveprof <- param$saveprof
   saveWave <- param$saveWave
+  epsg <- param$epsg
   
   # make some directories as needed
   if (normalize == 'Y') {
@@ -188,7 +189,7 @@ for (p in (1:nrow(params))) {
       out.rdata <- paste0(rdata.dir, stripExtBase(lf), "_normFilMetrics_vars.RDATA")
       save(normalize, las2norm.file, dtm.file, outnorm, normlog.dir, QA.flags, las2qa.file, outfil, QAlog.dir, 
                binsize, min_ptden, vegflag, absmaxht, minhtamp, minht, las2mets.file, out.mets, saveprof, 
-               profname, saveWave, wavename, met.type, ht.col, int.col, tmpdir, metlog.dir, calc.mets, file=out.rdata)
+               profname, saveWave, wavename, met.type, ht.col, int.col, tmpdir, metlog.dir, calc.mets, epsg, file=out.rdata)
       
       # write out.data to rdata.list
       rdata.list <- c(rdata.list, out.rdata)
