@@ -14,7 +14,12 @@ dir.create(QLOG, showWarnings = F)
 
 params <- read.csv(paramfile, stringsAsFactors = F)
 
-p=50
+# test - want to run jalisco first
+params <- rbind.data.frame(params[c(21,19,20,22,23),], params)
+params <- params[-(24:28),]
+params <- params[1:5,]
+
+# p=50
 for (p in (1:nrow(params))) {
   
   param <- params[p,]
@@ -203,10 +208,13 @@ for (p in (1:nrow(params))) {
     # grid engine job name
     len <- length(unlist(strsplit(stripExtBase(lasfiles[1]), "_")))
     jobname <- paste0(paste(unlist(strsplit(stripExtBase(lasfiles[1]), "_"))[-c(len-1, len)], collapse="_"), "_normFilMetrics_batch_", batchsize, "_b", b)
-    sys.call <- paste("/net/share-2/export/HomeDir/sge6.2/bin/lx24-amd64/qsub -b yes -l rdisk=2G -q prod.q -V -N", jobname, "-o",QLOG, "-e", QLOG, 
-                      "/mnt/s/bin/jqsub 'R --vanilla --slave < /mnt/a/tcormier/scripts/general/R/process_lidar_NormFilMetrics_byBatch_addEcoregions.R' --args", rdata.txt)
+    sys.call <- paste("/net/share-2/export/HomeDir/sge6.2/bin/lx24-amd64/qsub -b yes -l rdisk=16G -q prod.q -V -N", jobname, "-o",QLOG, "-e", QLOG, 
+                      "/mnt/s/bin/jqsub 'R --vanilla --slave < /mnt/a/tcormier/scripts/general/R/process_lidar_NormFilMetrics_byBatch_addEcoregions_parallel.R' --args", rdata.txt)
     system(sys.call)
   }
+  
+  # probably unnecessary garbage collection
+  gc()
 }
 
 
