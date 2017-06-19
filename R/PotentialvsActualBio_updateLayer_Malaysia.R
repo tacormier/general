@@ -47,7 +47,7 @@ b <- shapefile("/Users/tcormier/Documents/misc_projects/Malaysia_maps/data/Malay
 
 # Crop and Mask every layer to the boundaries
 #act
-act.c <- crop (act, b)
+act.c <- crop(act, b)
 beginCluster(4)
 act.m <- clusterR(act.c, mask, args=list(mask=b))
 # endCluster()
@@ -86,8 +86,9 @@ gain.sum <- cellStats(gain.m, stat = sum, na.rm=T)
 
 # Function to convert t/ha biomass to millions of metric tons
 tpa2t <- function(x, pixres.m) {
-  res.ha <- pixres^2/10000
+  res.ha <- pixres.m^2/10000
   x.tot <- x*res.ha/1000000
+  return(x.tot)
 }
 
 pixres <- 463.3127
