@@ -53,13 +53,25 @@ for (r in (1:length(rdata.files))) {
     
     # Use DTM to normalize las
     lasnorm <- lasnormalize(las2norm, dtm)
-    writeLAS(lasnorm, outnorm)
-      
+    
+    if (!is.null(lasnorm)) {
+      writeLAS(lasnorm, outnorm)
+    } else {
+      print("all data were null in DTM - normalization failed.")
+      normlog <- "normfile-failed"
+      normlog.df <- cbind.data.frame(las2norm.file, normlog)
+      names(normlog.df) <- c("lf", "norm_status")
+      normlog.file <- paste0(normlog.dir, stripExtBase(las2norm.file), "_normlog.txt")
+      write.table(normlog.df, normlog.file, row.names=F, quote=F)
+      next()
+    }
+    
     if (file.exists(outnorm)) {
       normlog <- "normfile-created"
     } else {
       normlog <- "normfile-failed"
     }
+    
     normlog.df <- cbind.data.frame(las2norm.file, normlog)
     names(normlog.df) <- c("lf", "norm_status")
     normlog.file <- paste0(normlog.dir, stripExtBase(las2norm.file), "_normlog.txt")
@@ -143,10 +155,10 @@ for (r in (1:length(rdata.files))) {
     
     #get point density
     ptden <- nrow(lasdata)/(lasarea(las2qa))
-    if (ptden < min_ptden) {log[,3] <- 1; log[,4] <- ptden}
+    if (ptden < min_ptden | lasarea(las2qa) == 0) {log[,3] <- 1; log[,4] <- ptden}
     
     # Next if there is no ground or vegetation return, or if more than 2% of the normalized heights are outliers
-    if (sum(log[, c(1,2,5,7)]) >= 1) {
+    if (sum(log[, c(1,2,5,7)]) >= 1 | la == 0) {
       tc.log$QA_status <- "failed_QA"
       write.table(tc.log, file=tc.log.file, row.names=F, quote=F, sep=",")
       log <- cbind.data.frame(lf=las2qa.file, log)
@@ -477,6 +489,9 @@ for (r in (1:length(rdata.files))) {
       
   }
 }
+
+############## Output File Copying to Somewhere - either storage bucket or back to cluster ####################
+
 
 
 

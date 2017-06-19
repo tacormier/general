@@ -1,7 +1,7 @@
 source("/mnt/a/tcormier/scripts/general/R/handy_functions_TC.R")
 
 # User Variables
-paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/parameter_files/CMS_metrics/CMS_tile_metrics_params_20170502_ALL.csv"
+paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/parameter_files/CMS_metrics/CMS_tile_metrics_params_20170504_ALL.csv"
 
 # How many lasfiles do you want to submit to the worker script at once?
 batchsize <- 250
@@ -14,7 +14,12 @@ dir.create(QLOG, showWarnings = F)
 
 params <- read.csv(paramfile, stringsAsFactors = F)
 
-p=23
+# test - want to run jalisco first
+params <- rbind.data.frame(params[c(21,19,20,22,23),], params)
+params <- params[-(24:28),]
+params <- params[1:5,]
+
+# p=50
 for (p in (1:nrow(params))) {
   
   param <- params[p,]
@@ -31,7 +36,8 @@ for (p in (1:nrow(params))) {
   calc.mets <- param$calcMets
   saveprof <- param$saveprof
   saveWave <- param$saveWave
-  epsg <- param$epsg
+  eco.shp <- param$eco_shp
+  laslist <- param$laslist
   
   # make some directories as needed
   if (normalize == 'Y') {
@@ -99,12 +105,12 @@ for (p in (1:nrow(params))) {
   }
   
   # Now work per las file
-  lasfiles.all <- list.files(lasdir, "*.las$", full.names=T)
+  # lasfiles.all <- list.files(lasdir, "*.las$", full.names=T)
+  lasfiles.all <- scan(laslist, what='character')
   
   # Grab a batch of files to submit to worker
   batches <- split((1:length(lasfiles.all)), ceiling(seq_along((1:length(lasfiles.all)))/batchsize))
-  
-  ###################### Copy files from storage to VM ############################
+#################### Copy files from storage to VM ############################
   
   
   
@@ -189,7 +195,7 @@ for (p in (1:nrow(params))) {
       out.rdata <- paste0(rdata.dir, stripExtBase(lf), "_normFilMetrics_vars.RDATA")
       save(normalize, las2norm.file, dtm.file, outnorm, normlog.dir, QA.flags, las2qa.file, outfil, QAlog.dir, 
                binsize, min_ptden, vegflag, absmaxht, minhtamp, minht, las2mets.file, out.mets, saveprof, 
-               profname, saveWave, wavename, met.type, ht.col, int.col, tmpdir, metlog.dir, calc.mets, epsg, file=out.rdata)
+               profname, saveWave, wavename, met.type, ht.col, int.col, tmpdir, metlog.dir, calc.mets, eco.shp, file=out.rdata)
       
       # write out.data to rdata.list
       rdata.list <- c(rdata.list, out.rdata)
@@ -202,10 +208,13 @@ for (p in (1:nrow(params))) {
     # grid engine job name
     len <- length(unlist(strsplit(stripExtBase(lasfiles[1]), "_")))
     jobname <- paste0(paste(unlist(strsplit(stripExtBase(lasfiles[1]), "_"))[-c(len-1, len)], collapse="_"), "_normFilMetrics_batch_", batchsize, "_b", b)
-    sys.call <- paste("/net/share-2/export/HomeDir/sge6.2/bin/lx24-amd64/qsub -b yes -l rdisk=2G -q prod.q -V -N", jobname, "-o",QLOG, "-e", QLOG, 
-                      "/mnt/s/bin/jqsub 'R --vanilla --slave < /mnt/a/tcormier/scripts/general/R/process_lidar_NormFilMetrics_byBatch.R' --args", rdata.txt)
+    sys.call <- paste("/net/share-2/export/HomeDir/sge6.2/bin/lx24-amd64/qsub -b yes -l rdisk=16G -q prod.q -V -N", jobname, "-o",QLOG, "-e", QLOG, 
+                      "/mnt/s/bin/jqsub 'R --vanilla --slave < /mnt/a/tcormier/scripts/general/R/process_lidar_NormFilMetrics_byBatch_addEcoregions_parallel.R' --args", rdata.txt)
     system(sys.call)
   }
+  
+  # probably unnecessary garbage collection
+  gc()
 }
 
 
