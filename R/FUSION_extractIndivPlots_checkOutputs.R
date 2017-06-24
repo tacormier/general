@@ -5,11 +5,11 @@
 # (a) Plot extraction step. 
 library(raster)
 library(rgeos)
-plots.shp <- "/mnt/a/tcormier/Mexico_CMS/field/points_wgs84_updatedFields_points/CMS_FieldPoints_wgs84_updatedFields_20170228_ecoRegions.shp"
-complete.plots <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/all_20170314/tmp_indivPlots/"
+plots.shp <- "/mnt/a/tcormier/Mexico_CMS/field/points_wgs84_updatedFields_points/CMS_FieldPoints_wgs84_updatedFields_20170615_wZeroBio_ecoRegions.shp"
+complete.plots <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/all_20170615_zeroBiomassAdded/complete_plots/"
 # This was made by hand, by me using qgis to check each point in the 15 shapefiles in the incomplete plot dir.
-incomp.plotList <- "/mnt/a/tcormier/Mexico_CMS/field/Incomplete_Plot_list.csv"
-extract.dir <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/all_20170314/not_norm_unfil/"
+incomp.plotList <- "/mnt/a/tcormier/Mexico_CMS/field/IncAndMissingPlots/Incomplete_Plot_list.csv"
+extract.dir <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/all_20170615_zeroBiomassAdded/"
 
 p.shp <- shapefile(plots.shp)
 pts <- p.shp@data
@@ -37,7 +37,7 @@ p.shp <- p.shp[p.shp@data$ID_TC %in% pts.mc$ID_TC,]
 # they weren't in the "incomplete" plots, but I added them to the incomplete plot list table. New
 # total of incompletely covered plots is: 33.)
 # There were also plots in there that just did not intersect with the lidar (18)
-shapefile(p.shp, "/mnt/a/tcormier/Mexico_CMS/field/missingIDs/missing_IDs.shp", overwrite=T)
+shapefile(p.shp, "/mnt/a/tcormier/Mexico_CMS/field/IncAndMissingPlots/missing_IDs.shp", overwrite=T)
 
 # list of IDs manually gathered from QGIS that SHOULD have been processed/extracted, but had UTM
 # mismatches with data they should overlay (due to lidar acquisitions crossing mult UTM zones, but only
@@ -55,23 +55,25 @@ utm <- shapefile("/mnt/a/tcormier/general/boundaries/UTM_Zone_Boundaries/UTM_Zon
 # G-LiHT_AMIGACarb_Oax_Chiap_1_NFI_Apr2013_UTM14N_groundCoverage_WGS84.shp, G-LiHT_AMIGACarb_Yuc_South_GLAS_Apr2013_UTM15N_groundCoverage_WGS84.shp
 # G-LiHT_AMIGACarb_Yuc_South_NFI_Apr2013_UTM15N_groundCoverage_WGS84.shp, and G-LiHT_AMIGACarb_Herm_AM_NFI_Apr2013_UTM12N_groundIndex.shp
 
+# Run these manually in batches to fill in pts.fix, then run the loop. Ugh. Mess. 
+
 # chi.file <- "/mnt/r/Mex_Lidar/ground_coverage_lastools_noholes/wgs84/G-LiHT_AMIGACarb_Chihuahua_norte_NFI_May2013_UTM12N_groundCoverage_WGS84.shp"
 # lasindex <- "/mnt/r/Mex_Lidar/ground_index_noholes/G-LiHT_AMIGACarb_Chihuahua_norte_NFI_May2013_UTM12N_groundIndex.shp"
 
 # chi.file <- "/mnt/r/Mex_Lidar/ground_coverage_lastools_noholes/wgs84/G-LiHT_AMIGACarb_Herm_Guan_NFI_Apr2013_UTM12N_groundCoverage_WGS84.shp"
 # lasindex <- "/mnt/r/Mex_Lidar/ground_index_noholes/G-LiHT_AMIGACarb_Herm_Guan_NFI_Apr2013_UTM12N_groundIndex.shp"
-
+# # 
 # chi.file <- "/mnt/r/Mex_Lidar/ground_coverage_lastools_noholes/wgs84/G-LiHT_AMIGACarb_Oax_Chiap_1_NFI_Apr2013_UTM14N_groundCoverage_WGS84.shp"
 # lasindex <- "/mnt/r/Mex_Lidar/ground_index_noholes/G-LiHT_AMIGACarb_Oax_Chiap_1_NFI_Apr2013_UTM14N_groundIndex.shp"
-
+# 
 # chi.file <- "/mnt/r/Mex_Lidar/ground_coverage_lastools_noholes/wgs84/G-LiHT_AMIGACarb_Yuc_South_GLAS_Apr2013_UTM15N_groundCoverage_WGS84.shp"
 # lasindex <- "/mnt/r/Mex_Lidar/ground_index_noholes/G-LiHT_AMIGACarb_Yuc_South_GLAS_Apr2013_UTM15N_groundIndex.shp"
-
+# 
 # chi.file <- "/mnt/r/Mex_Lidar/ground_coverage_lastools_noholes/wgs84/G-LiHT_AMIGACarb_Yuc_South_NFI_Apr2013_UTM15N_groundCoverage_WGS84.shp"
 # lasindex <- "/mnt/r/Mex_Lidar/ground_index_noholes/G-LiHT_AMIGACarb_Yuc_South_NFI_Apr2013_UTM15N_groundIndex.shp"
 # # 
-# chi.file <- "/mnt/r/Mex_Lidar/ground_coverage_lastools_noholes/wgs84/G-LiHT_AMIGACarb_Herm_AM_NFI_Apr2013_UTM12N_groundCoverage_WGS84.shp"
-# lasindex <- "/mnt/r/Mex_Lidar/ground_index_noholes/G-LiHT_AMIGACarb_Herm_AM_NFI_Apr2013_UTM12N_groundIndex.shp"
+chi.file <- "/mnt/r/Mex_Lidar/ground_coverage_lastools_noholes/wgs84/G-LiHT_AMIGACarb_Herm_AM_NFI_Apr2013_UTM12N_groundCoverage_WGS84.shp"
+lasindex <- "/mnt/r/Mex_Lidar/ground_index_noholes/G-LiHT_AMIGACarb_Herm_AM_NFI_Apr2013_UTM12N_groundIndex.shp"
 
 chi <- shapefile(chi.file)
 # get utm
@@ -106,7 +108,7 @@ for (i in (1:length(id.should))) {
   new.proj <- paste0("+proj=utm +zone=",i.poly@data$to_UTM," +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0")
   po.reproj <- spTransform(po.i, CRSobj = CRS(new.proj))
   
-  outname <- paste0("/mnt/a/tcormier/Mexico_CMS/field/missingIDs/missing_ID_poly_UTM", i.utm, "_to_UTM",i.poly@data$to_UTM,"_", i.id, ".shp")
+  outname <- paste0("/mnt/a/tcormier/Mexico_CMS/field/IncAndMissingPlots/UTM_issues/missing_ID_poly_UTM", i.utm, "_to_UTM",i.poly@data$to_UTM,"_", i.id, ".shp")
   shapefile(po.reproj, outname, overwrite=T)
   
   params$polyPath[i] <- outname
@@ -114,7 +116,7 @@ for (i in (1:length(id.should))) {
   params$lasindex[i] <- i.poly@data$lasindex
   
 }
-out.params <- paste0("/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/FUSION_extractPlots_params/extract_CMS_MISSING_Plots_from_20170314.csv")
+out.params <- paste0("/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/FUSION_extractPlots_params/extract_CMS_MISSING_Plots_from_20170615.csv")
 write.csv(params, out.params, row.names=F, quote=F)
 
 

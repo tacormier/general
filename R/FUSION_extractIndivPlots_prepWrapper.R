@@ -26,7 +26,7 @@ paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/las_extract/FUSIO
 min.area <- 95
 
 # outdir <- "/mnt/a/tcormier/Mexico_CMS/lidar/G-LiHT/field_lidar_intersect/" Does not need to exist.
-outdir <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/all_20170314/"
+outdir <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/all_20170615_zeroBiomassAdded/"
 
 # Do the laslists need to be reformated to run windows tool with wine? (see function documentation)? Y or N?
 reform <- 'Y'
@@ -35,7 +35,7 @@ reform <- 'Y'
 deltmp <- 'N'
 
 #where do you want to store the qsub logs? Directory. Does not have to exist already.
-QLOG <- "/mnt/a/tcormier/scripts/logs/CMS_lidarExtract/20170317_redoMissing_UTM_debacle/"
+QLOG <- "/mnt/a/tcormier/scripts/logs/CMS_lidarExtract/20170615/"
 
 # txt file of IDs that errored - later, take this out and make it its own script.
 # error.txt <- "/mnt/a/tcormier/Mexico_CMS/lidar/field_intersect/all_20170314/error_files/missingIDs.txt"
