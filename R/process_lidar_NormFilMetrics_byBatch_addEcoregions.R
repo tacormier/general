@@ -1,5 +1,7 @@
 library(lidR)
 library(raster)
+library(rgeos)
+library(signal)
 ################################################
 
 Args <- commandArgs(trailingOnly=TRUE)
@@ -31,11 +33,13 @@ if (calc.mets == 'Y') {
   # In this specific situation, I'm going to ONLY write the extraction of ecoregion
   # in during metrics calc - because we don't need ecoregion if we don't have metrics.
   eco <- shapefile(eco.shp)
-  library(rgeos)
+  # #!#TC1 No need to load libraries here AND in the foreach.
+  # library(rgeos)
   
-  if (met.type == 'prof-based' | met.type == 'both') {
-    library(signal)
-  }
+  #   if (met.type == 'prof-based' | met.type == 'both') {
+  #     library(signal)
+  #   }
+  #!#TC1
 }
 
 # Loop over rdata files
@@ -80,10 +84,13 @@ for (r in (1:length(rdata.files))) {
         normlog <- "normfile-failed"
       }
       
-      normlog.df <- cbind.data.frame(las2norm.file, normlog)
-      names(normlog.df) <- c("lf", "norm_status")
-      normlog.file <- paste0(normlog.dir, stripExtBase(las2norm.file), "_normlog.txt")
-      write.table(normlog.df, normlog.file, row.names=F, quote=F)
+      #!#TC2 - only write log if status is 'normfile-failed'
+      if (normlog == 'normfile-failed') {
+        normlog.df <- cbind.data.frame(las2norm.file, normlog)
+        names(normlog.df) <- c("lf", "norm_status")
+        normlog.file <- paste0(normlog.dir, stripExtBase(las2norm.file), "_normlog.txt")
+        write.table(normlog.df, normlog.file, row.names=F, quote=F)
+      } #!#TC2
     } # End normalization section
     
     
@@ -151,10 +158,8 @@ for (r in (1:length(rdata.files))) {
         if (sum(dummy+0) == 0) {log[,2] <- 1} #No vegetation return
       }
       
-      # *** TALK WITH WAYNE ABOUT EXACTLY HOW AND WHERE TO IMPLEMENT ABSMAXHT FLAG. 
-      # Do we do the %-based filtering and if there are values left that are over our absht threshold,
-      # we trash the tile? That would mean that more than 2% of the tile is trash, so I think we trash it.
-      # That's what I implemented for now.
+      # %-based filtering and if there are values left that are over our absht threshold,
+      # we trash the tile. That would mean that more than 2% of the tile is bad, so we trash it.
       maxht <- quantile(lasdata$z, c(0.99))
       fgt_maxht <- length(lasdata$z[lasdata$z > maxht]) / length(lasdata$z) * 100
       if (fgt_maxht > 2) {log[,5] <- 1; log[,6] <- fgt_maxht} #More than 2% of normalized heights > maxht m
@@ -224,8 +229,11 @@ for (r in (1:length(rdata.files))) {
       }
       
       log <- cbind.data.frame(lf=las2qa.file, log)
-      
-      write.table(tc.log, file=tc.log.file, row.names=F, quote=F, sep=",")
+      #!#TC3 Only write tc.log.file if status != filtered_las (there are multiple fail messages possible).
+      # Need all fg.log.file files
+      if (tc.log$QA_status != "filtered_las") {
+        write.table(tc.log, file=tc.log.file, row.names=F, quote=F, sep=",")
+      } #!#TC3
       write.table(log, file=fg.log.file, row.names=F, quote=F, sep=",")
     } # End filtering code
     
@@ -278,6 +286,10 @@ for (r in (1:length(rdata.files))) {
         # Find ground peak below 25% of max profile height
         #gmax0 <- max(lasdata$z[lasdata$c==2], na.rm=T) - min(lasdata$z) #doesn't work... can't trust ground classification. Leaving it in for legacy.
         gmax0 <- ceiling(0.20*max(profile$height)) # changed to 20% per Fabio's email on 4/10/2017
+        # Ceiling only works (in line above) if there are profile rows > 1m. For zero bio plots, that may not be the case.
+        if (gmax0 > max(profile$height)) {
+          gmax0 <- max(profile$height)
+        }
         # All ground counts beneath gmax0
         gcounts <- profile$counts[1:which(profile$height==gmax0)]
         
@@ -520,11 +532,13 @@ for (r in (1:length(rdata.files))) {
       } else {
         metlog <- "metrics-failed"
       }
-      metlog.df <- cbind.data.frame(las2mets.file, metlog)
-      names(metlog.df) <- c("lf", "norm_status")
-      metlog.file <- paste0(metlog.dir, stripExtBase(las2mets.file), "_metlog.txt")
-      write.table(metlog.df, metlog.file, row.names=F, quote=F)
-        
+      #!#TC4 Only need metlog if status='metrics-failed'
+      if (metlog == 'metrics-failed') {
+        metlog.df <- cbind.data.frame(las2mets.file, metlog)
+        names(metlog.df) <- c("lf", "norm_status")
+        metlog.file <- paste0(metlog.dir, stripExtBase(las2mets.file), "_metlog.txt")
+        write.table(metlog.df, metlog.file, row.names=F, quote=F)
+      } #!#TC4
     }
   }, error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
 }
