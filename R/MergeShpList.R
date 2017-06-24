@@ -1,9 +1,11 @@
 library(raster)
 library(pbapply)
 # merge.dir <- "/Users/tcormier/Documents/871_MexicoCMS/local_copy/ground_coverage_lastools_noholes/wgs84/"
-merge.dir <- "/Users/tcormier/Documents/871_MexicoCMS/local_copy/ground_index_noholes/wgs84/"
+# merge.dir <- "/Users/tcormier/Documents/871_MexicoCMS/local_copy/ground_index_noholes/wgs84/"
+# merge.dir <- "/Users/tcormier/Documents/general/boundaries/Raisg_NaturalProtectedAreas/"
+merge.dir <- "/Users/tcormier/Documents/871_MexicoCMS/local_copy/field/polygons_wgs84/indiv/"
 # out.merge <- "/Users/tcormier/Documents/871_MexicoCMS/local_copy/ground_coverage_lastools_noholes/CMS_lidar_groundCoverage_ALL_WGS84.shp"
-out.merge <- "/Users/tcormier/Documents/871_MexicoCMS/local_copy/ground_index_noholes/wgs84/CMS_ground_index_noHoles_wgs84.shp"
+out.merge <- "/Users/tcormier/Documents/871_MexicoCMS/local_copy/field/polygons_wgs84/CMS_FieldPolygons_updatedFields_20170228_WGS84.shp"
 
 merge.files <- list.files(merge.dir, "*.shp$", full.names=T)
 # source.g <- grep('G-LiHT', merge.files)
