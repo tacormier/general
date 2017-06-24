@@ -1,6 +1,7 @@
 # library(raster)
 # This script is just a wrapper that will loop over the parameter file and submit each subsection
-# as its own job to grid engine.
+# as its own job to grid engine. Does QA of normalization, filtering, and metrics for plots or tiles.
+# For plots, will also link up biomass info stored in shapefile.
 
 # paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/parameter_files/CMS_metrics/CMS_tile_metrics_params_20170504_ALL.csv"
 paramfile <- "/mnt/a/tcormier/Mexico_CMS/lidar/parameter_files/CMS_metrics/CMS_plot_metrics_params_20170615_ALL.csv"
@@ -71,7 +72,7 @@ for (p in (1:nrow(params))) {
   
   
   sys.call <- paste("/net/share-2/export/HomeDir/sge6.2/bin/lx24-amd64/qsub -b yes -l rdisk=4G -q dev.q -V -N", jobname, "-o",QLOG, "-e", QLOG, 
-                    "/mnt/s/bin/jqsub 'R --vanilla --slave < /mnt/a/tcormier/scripts/general/R/plots_lidarMetrics_checkOutputs_cat_linkBio_qsub.R' --args", rdata.file)
+                    "/mnt/s/bin/jqsub 'R --vanilla --slave < /mnt/a/tcormier/scripts/general/R/lidar_normFilMetrics_checkOutputs_cat_linkBio_qsub.R' --args", rdata.file)
   system(sys.call)
 }
   
