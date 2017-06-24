@@ -72,7 +72,7 @@ for (p in (1:nrow(params))) {
   
   
   sys.call <- paste("/net/share-2/export/HomeDir/sge6.2/bin/lx24-amd64/qsub -b yes -l rdisk=4G -q dev.q -V -N", jobname, "-o",QLOG, "-e", QLOG, 
-                    "/mnt/s/bin/jqsub 'R --vanilla --slave < /mnt/a/tcormier/scripts/general/R/lidar_normFilMetrics_checkOutputs_cat_linkBio_qsub.R' --args", rdata.file)
+                    "/mnt/s/bin/jqsub 'R --vanilla --slave < /mnt/a/tcormier/scripts/general/R/process_lidar_normFilMetrics_checkOutputs_cat_linkBio_qsub.R' --args", rdata.file)
   system(sys.call)
 }
   
