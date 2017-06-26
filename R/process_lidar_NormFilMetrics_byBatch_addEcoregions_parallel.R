@@ -289,6 +289,10 @@ lasfun <- function(r) {
         # Find ground peak below 25% of max profile height
         #gmax0 <- max(lasdata$z[lasdata$c==2], na.rm=T) - min(lasdata$z) #doesn't work... can't trust ground classification. Leaving it in for legacy.
         gmax0 <- ceiling(0.20*max(profile$height)) # changed to 20% per Fabio's email on 4/10/2017
+        # Ceiling only works (in line above) if there are profile rows > 1m. For zero bio plots, that may not be the case.
+        if (gmax0 > max(profile$height)) {
+          gmax0 <- max(profile$height)
+        }
         # All ground counts beneath gmax0
         gcounts <- profile$counts[1:which(profile$height==gmax0)]
         
