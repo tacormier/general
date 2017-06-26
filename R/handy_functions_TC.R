@@ -83,24 +83,24 @@ plotWaveform <- function(waveformDF, nameHeightCol, nameCountCol, smoothFactor=0
     sm.line <- as.data.frame(cbind(smooth_vals, wave[[nameHeightCol]]))
     #sm.line <- as.data.frame(cbind(smooth_vals[[2]], smooth_vals[[1]]))
     names(sm.line) <- c("counts", "height")
-  
+    
     p <- ggplot(wave, aes_string(wave[,nameCountCol], wave[,nameHeightCol])) + ylim(ylim) + xlim(xlim) + geom_point(size=0.5)  + geom_path(data=sm.line, col="chartreuse4", size=0.5) + 
       theme_bw() + theme(legend.position="none", axis.title=element_text(size=rel(0.6)), axis.text=element_text(size=rel(0.6))) + xlab("Count") + ylab("Height (m)")
     # col="darkgray"
     # to include points too!
     #+ geom_point(size=1.5) 
-  
-    } else if (lineType == "exact") {
-      p <- ggplot(wave, aes(wave[,nameCountCol], wave[,nameHeightCol])) + ylim(ylim) + xlim(xlim) + geom_path(data=wave, col="chartreuse4", size=0.5) + 
-        theme_bw() + theme(legend.position="none", axis.title=element_text(size=rel(0.6)), axis.text=element_text(size=rel(0.6))) + xlab("Count") + ylab("Height (m)")
-      
-      # to include points too!
-      #+ geom_point(size=1.5) 
-      
+    
+  } else if (lineType == "exact") {
+    p <- ggplot(wave, aes(wave[,nameCountCol], wave[,nameHeightCol])) + ylim(ylim) + xlim(xlim) + geom_path(data=wave, col="chartreuse4", size=0.5) + 
+      theme_bw() + theme(legend.position="none", axis.title=element_text(size=rel(0.6)), axis.text=element_text(size=rel(0.6))) + xlab("Count") + ylab("Height (m)")
+    
+    # to include points too!
+    #+ geom_point(size=1.5) 
+    
   } else {
     stop(paste0("The lineType argument must be either 'smooth' or 'exact.' You entered '", lineType, "'. Please try again."))
   }
-    
+  
   # If we want to use a color gradient on the line! Would change the color in geom_path to aes(colour=wave$height)
   # + scale_colour_gradient2(low="tan4", mid="darkkhaki", high="chartreuse4",midpoint=sm.line$height[median(sm.line$counts)]) +
   
@@ -151,7 +151,7 @@ distOK <- function(xy, image, dist) {
   v <- vector(mode="logical", length = length(xy[,1]))
   for (n in 1:length(xy[,1])) {
     #v[n] <- distOK(xy[n,])
-  
+    
     x <- xy[n,1]
     y <- xy[n,2]
     # using the remainder here lets us determine, relative to the individual pixel, how far the point is
@@ -165,10 +165,10 @@ distOK <- function(xy, image, dist) {
     if (!x_dist) {
       result = FALSE
     } else {
-        dist_south_y <- (y - y_min) %% y_res
-        dist_north_y <- y_res - dist_south_y
-        result <- (min(dist_south_y, dist_north_y) >= dist)
-      }
+      dist_south_y <- (y - y_min) %% y_res
+      dist_north_y <- y_res - dist_south_y
+      result <- (min(dist_south_y, dist_north_y) >= dist)
+    }
     v[n] <- result
   }# end v loop
   return(v)
@@ -238,7 +238,7 @@ writeMDDB_multPlotsPerPixel <- function(inImg, predNames, inPlot, xcol, ycol, ou
   } else {
     print("pp must equal 'polygons' or 'points'")
   }# end file ext vec if/else
-
+  
   vecTxt <- paste0("Number of samples in inPlot: ", nrow(vec))
   write(vecTxt, lf, append=T)
   
@@ -259,7 +259,7 @@ writeMDDB_multPlotsPerPixel <- function(inImg, predNames, inPlot, xcol, ycol, ou
   # I think these two lines can be accomplished in one line (above)
   #   slot(vec, "data") <- vec@data[flags,]
   #   slot(vec, "coords") <- vec@coords[flags,]
-    
+  
   # Extract values for attName variable (attribute field)
   attributes <- vec[[responseCol]]
   
@@ -386,7 +386,7 @@ writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, 
     funCall <- paste0("Function Call: WriteMDDB_multPixelsPerPlot(", inPlot,", ",xcol,", ",ycol,", ",responseCol,", ",dist.m,", ",outMDDB,", ",inImg,", (",paste(predNames,collapse=","),"), ", outBuff, ", ",logfile, ")")
     write(funCall, lf, append=T)
   } 
- 
+  
   # Read Shapefile and input image
   # Get file extension of inPlot (must be .shp or .csv) **This assumes the only "." in the filename
   # is the one that delineates the name from the extension.
@@ -412,13 +412,13 @@ writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, 
     print("pp must equal 'polygons' or 'points'")
   }# end file ext vec if/else
   
-    #vec <- SpatialPointsDataFrame(coords, vec, proj4string = CRS("+proj=utm +zone=16 +datum=WGS84 +units=m +no_defs"))
+  #vec <- SpatialPointsDataFrame(coords, vec, proj4string = CRS("+proj=utm +zone=16 +datum=WGS84 +units=m +no_defs"))
   # Create circular polygons with 35m radius around each glas shot (i.e., a shapefile of shot footprints):
   if (pp=="points") {
     write("buffering points by plot radius", lf, append=T)
-#     if (proj.in != "+proj=longlat +datum=WGS84 +no_defs") {
-#       vec <- spTransform(vec, CRSobj = CRS("+proj=longlat +datum=WGS84 +no_defs"))
-#     }
+    #     if (proj.in != "+proj=longlat +datum=WGS84 +no_defs") {
+    #       vec <- spTransform(vec, CRSobj = CRS("+proj=longlat +datum=WGS84 +no_defs"))
+    #     }
     # gBuffer requires projected coordinates, so just for a minute:
     # Use an equal-area projection to buffer the points, then put back to WGS84. Assumes if the proj
     # is not in latlong, units be in METERS. 
@@ -429,9 +429,9 @@ writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, 
       # If the points are in latlong, put into aeqd proj for buffering
       if (grepl("longlat", projection(p)) ) {
         print("CRS in latlong - temporarily reprojecting to AEQD for buffering")
-  
+        
         aeqd <- sprintf("+proj=aeqd +lat_0=%s +lon_0=%s +x_0=0 +y_0=0",
-                      p@coords[[2]], p@coords[[1]])
+                        p@coords[[2]], p@coords[[1]])
         projected <- spTransform(p, CRS(aeqd))
       } else {
         print(paste0("Using projection from points file for buffering: ", projection(p)))
@@ -455,7 +455,7 @@ writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, 
     }
     t.polydiff <- proc.time()-t.poly
     write(paste0("buffering completed for ", length(vec.buff), " points in ", round(t.polydiff[3], 2), " seconds"), lf, append=T)
-  
+    
     # Get the ID names of each polygon...intially they are all the same, but each polygon needs a unique ID:
     IDs <- sapply(vec.buff, function(x) slot(slot(x, "polygons")[[1]], "ID"))
     # Give each polygon a unique ID  (1: number of list elements)
@@ -477,8 +477,8 @@ writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, 
     polys.crs=spol.df
     writePolyShape(polys.crs, fn = outBuff)
   } else {
-      data.df <- as.data.frame(vec)
-      polys.crs <- vec
+    data.df <- as.data.frame(vec)
+    polys.crs <- vec
   }
   
   # Get image/raster data
@@ -488,7 +488,7 @@ writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, 
   # Some NA value housekeeping
   #myBands[myBands == -9999 | myBands == -32768 | myBands == 32767] <- NA
   n <- nlayers(myBands)
- 
+  
   # Extract the data, specifying number of layers (automatically extracts all bands for now):
   sfInit(parallel=T, cpus=n_cores)
   sfLibrary(raster)
@@ -502,7 +502,7 @@ writeMDDB_multPixelsPerPlot <- function(inPlot, xcol, ycol,responseCol, dist.m, 
   system.time(extract.all.sf <- sfLapply(myBands.list, raster::extract, y=polys.crs, weights=T))
   sfStop()
   
-write(paste0("finished extraction in ", round((proc.time()[3]-T1[3])/60,2), " minutes."), lf, append=T)
+  write(paste0("finished extraction in ", round((proc.time()[3]-T1[3])/60,2), " minutes."), lf, append=T)
   
   # Need to reorganize the output of the multicore extraction to match
   # output of single-core extraction - makes the rest of the code just work
@@ -519,7 +519,7 @@ write(paste0("finished extraction in ", round((proc.time()[3]-T1[3])/60,2), " mi
     # QA Check: Make sure all weights are all equal between dfs
     extract.wts <- lapply(extract.dfs, function(x) { x["value"] <- NULL; x })
     if (length(unique(extract.wts)) != 1) stop("Problem transposing lists - weights aren't lining up. Check that inputs are what you expect.")
-
+    
     # remove weights for cbinding (don't want 25 of the same weight columns)
     extract.nowt <- lapply(extract.dfs, function(x) { x["weight"] <- NULL; x })
     extract.cb <- do.call(cbind, extract.nowt)
@@ -530,7 +530,7 @@ write(paste0("finished extraction in ", round((proc.time()[3]-T1[3])/60,2), " mi
     extract.all[[l]] <- extract.done
   } # end list transpose loop (looping over plots)
   
-
+  
   # Compute the weighted means of the landsat bands for each glas shot
   # Here, the weights are the *proportions* of each pixel inside the glas shot. 
   # length(extract.all) should give you the total number of glas shots
@@ -579,11 +579,11 @@ write(paste0("finished extraction in ", round((proc.time()[3]-T1[3])/60,2), " mi
   } else {
     write(paste0(outMDDB, ": file created."), lf, append=T)
   }
-
+  
   write("finished", lf, append=T)  
   return(results)
 } # end writeMDDB_multPixelsPerPlot function
-  
+
 # ################## Stratified Random Sampling ################## 
 # stratified = function(df, group, size) {
 #   #  USE: * Specify your data frame and grouping variable (as column 
@@ -787,27 +787,30 @@ las2tiles <- function(lasdir, tilesize, rawFormat='las', utmZone, siteID, rm.tmp
   lasfiles <- list.files(lasdir, p, full.names=T)
   
   # check files (http://rapidlasso.com/2013/04/20/tutorial-quality-checking/)
-#   info.cmd <- paste0("/mnt/a/tcormier/LAStools/bin/lasinfo.exe -i ", lasdir, "/*.", rawFormat, " -compute_density")
-#   system(info.cmd)
-#   
+  #   info.cmd <- paste0("/mnt/a/tcormier/LAStools/bin/lasinfo.exe -i ", lasdir, "/*.", rawFormat, " -compute_density")
+  #   system(info.cmd)
+  #   
   # lasview currently fails on the linux side because it tries to open an X 
   # window and can't. 
   val.cmd <- paste0("/usr/bin/wine /mnt/a/tcormier/LAStools/bin/lasvalidate.exe -i ", lasdir, "/*.", rawFormat, " -oxml")
   system.time(system(val.cmd))
-#   view.cmd <- paste0("wine /mnt/a/tcormier/LAStools/bin/lasview.exe -i ", lasdir, "/*.", rawFormat, " -gui")
-#   system(view.cmd)
+  #   view.cmd <- paste0("wine /mnt/a/tcormier/LAStools/bin/lasview.exe -i ", lasdir, "/*.", rawFormat, " -gui")
+  #   system(view.cmd)
   
-  # Merge files before using lastile. lastile could do it all, but it doesn't work sometimes
+  # Merge files before using lastile. lastile could do it all, but it doesn't work sometimes. Be sure to check that you
+  # aren't missing any files in the merged .laz file - can happen if we hit memory limits.
   merge.cmd <- paste0("/mnt/a/tcormier/LAStools/bin/lasmerge.exe -i ", lasdir, "/*.", rawFormat, " -odir ", lasdir, " -o merge.laz")
   system(merge.cmd)
   
-  # Tile all points from all files using a tile size of tileszie
+  # Tile all points from all files using a tile size of tilesize. *NOTE - now that we can directly read las files in R, no 
+  # need to convert to text. TO DO: SO, write these files to a permanent directory - not temp!
   tile.cmd <- paste0("/usr/bin/wine /mnt/a/tcormier/LAStools/bin/lastile.exe -i ", lasdir, "/merge.laz -odir ", tmpdir, " -tile_size ", tilesize, " -olas -o ", siteID, " -rescale 0.01 0.01 0.01")
   system(tile.cmd)
   
+  # No longer need this step (which duplicates the las files as txt files). Using lidR package, can read las files directly into R.
   # convert las2txt
-  txt.cmd <- paste0("/mnt/a/tcormier/LAStools/bin/las2txt.exe -i ", tmpdir, "*.las -odir ", tiledir, " -parse xyzianrc -sep comma")
-  system(txt.cmd)
+  # txt.cmd <- paste0("/mnt/a/tcormier/LAStools/bin/las2txt.exe -i ", tmpdir, "*.las -odir ", tiledir, " -parse xyzianrc -sep comma")
+  # system(txt.cmd)
   
   # Make a grid for use in R
   # create temp file that contains list of las files - can be deleted after.
@@ -824,16 +827,16 @@ las2tiles <- function(lasdir, tilesize, rawFormat='las', utmZone, siteID, rm.tmp
   # Some checking to make sure all files were created:
   orig <- length(lasfiles)
   lastiles <- list.files(tmpdir, pattern="*.las$")
-  txttiles <- list.files(tiledir, pattern="*.txt$")
+  # txttiles <- list.files(tiledir, pattern="*.txt$")
   geotiles <- list.files(geodir, pattern="*.tif$", full.names=T)
   
   # First, make sure all lastiles were converted to txt files
-  val1 <- identical(unlist(strsplit(lastiles, "\\."))[1], unlist(strsplit(txttiles, "\\."))[1])
-  if (!val1) {
-    # if file mismatch, do not delete temp files:
-    rm.tmp <- "F"
-    warning("Mismatch between las tiles and txt tiles. Check files.")
-  }
+  # val1 <- identical(unlist(strsplit(lastiles, "\\."))[1], unlist(strsplit(txttiles, "\\."))[1])
+  # if (!val1) {
+  #   # if file mismatch, do not delete temp files:
+  #   rm.tmp <- "F"
+  #   warning("Mismatch between las tiles and txt tiles. Check files.")
+  # }
   # Remove temp dir and merge.laz file
   if (rm.tmp == T) {
     unlink(paste0(lasdir, "/temp/"))
@@ -841,7 +844,7 @@ las2tiles <- function(lasdir, tilesize, rawFormat='las', utmZone, siteID, rm.tmp
   }
   
   return(list(orig, val1, geotiles))
-
+  
 } # end las2tiles
 
 #################### Use FUSION to extract lidar data to [field plot] polygons #####################
@@ -899,16 +902,16 @@ imageCoverage <- function(ras, outpoly, parallel=T) {
   library(parallel)
   # rasterOptions(tmpdir="/home/tcormier/RasTmpDir/")
   rasterOptions(tmpdir="/Users/tcormier/Documents/R_temp/")
-
-# Took 2.65 minutes on Cutzamala 
+  
+  # Took 2.65 minutes on Cutzamala 
   # p.1 <- proc.time()
   # m2 <- mask(ras, ras, inverse=T, updatevalue=1)
   # print(paste0("Masking complete in ", round(proc.time()[1]+proc.time()[2] - p.1[1] - p.1[2], digits=4), " seconds."))
   
   # Took 2.55 minutes
-#   p.2 <- proc.time()
-#   div <- ras/ras
-#   print(paste0("Dividing complete in ", round(proc.time()[1]+proc.time()[2] - p.2[1] - p.2[2], digits=4), " seconds."))
+  #   p.2 <- proc.time()
+  #   div <- ras/ras
+  #   print(paste0("Dividing complete in ", round(proc.time()[1]+proc.time()[2] - p.2[1] - p.2[2], digits=4), " seconds."))
   
   # Took 8.92 minutes
   #   p.4 <- proc.time()
@@ -925,15 +928,15 @@ imageCoverage <- function(ras, outpoly, parallel=T) {
     endCluster()
     
   } else if (parallel == F | !exists("calc1")) {
-  
+    
     # Took 1.7 minutes
     p.3 <- proc.time()
     calc1 <- calc(ras, function(x) x/x)
     print(paste0("Calc complete in ", round((proc.time()[1]+proc.time()[2] - p.3[1] - p.3[2])/60, digits=4), " minutes"))
   } # end parallel YN and clusterR safeguard if/else
-
+  
   # Convert to polygon - takes forever
-#   system.time(ras2poly <- rasterToPolygons(calc1, dissolve=T))
+  #   system.time(ras2poly <- rasterToPolygons(calc1, dissolve=T))
   
   # using gdal
   writeRaster(calc1, {f <- tempfile(fileext='.tif')})
@@ -947,7 +950,7 @@ imageCoverage <- function(ras, outpoly, parallel=T) {
   Sys.setenv(PATH = path.orig)
   
   # system.time(x <- rasterToPolygons(calc1))
-
+  
   # ret.poly <- readOGR(dirname(outpoly), unlist(strsplit(basename(outpoly), "\\."))[1])
   # writeOGR(ret.poly, dirname(outpoly), unlist(strsplit(basename(outpoly), "\\."))[1], overwrite=T, driver = "ESRI Shapefile")
   # return(ret.poly)
@@ -1008,17 +1011,17 @@ groundIndex <- function(grndCoveragePoly, coarseIndexPoly, outIndex) {
   # Using raster::intersect would be idea, but it doesn't return all of the tiles for 
   # some reason, leaving holes in the index. 
   # index.union <- raster::union(grndCoveragePoly, coarseIndexPoly)
-#   writeOGR(grndCoveragePoly, "PG:dbname='tcormier' host='fusion' port='5433' ", layer_options = "geometry_name=geom", 
-#            "grndCoveragePoly", "PostgreSQL")
-#   writeOGR(coarseIndexPoly, "PG:dbname='tcormier' host='fusion' port='5433' ", layer_options = "geometry_name=geom", 
-#            "coarseIndexPoly", "PostgreSQL")
+  #   writeOGR(grndCoveragePoly, "PG:dbname='tcormier' host='fusion' port='5433' ", layer_options = "geometry_name=geom", 
+  #            "grndCoveragePoly", "PostgreSQL")
+  #   writeOGR(coarseIndexPoly, "PG:dbname='tcormier' host='fusion' port='5433' ", layer_options = "geometry_name=geom", 
+  #            "coarseIndexPoly", "PostgreSQL")
   
   
   # # Read it back in to see if it's fixed - NOPE, it wasn't :/
   # dsn <- "PG:dbname='tcormier' host='fusion' port='5433' "
   # ogrListLayers(dsn)
   # grndCoveragePoly = readOGR(dsn="PG:host='fusion' port='5433' dbname='tcormier' user='tcormier' password='6yhn6yhn'","junk_cutzamala_grnd")
-
+  
   # index.self <- raster::intersect(coarseIndexPoly, coarseIndexPoly)
   
   # Are the two shapefiles the same projection? Might be using a WGS84 grnd coverage
@@ -1045,41 +1048,41 @@ groundIndex <- function(grndCoveragePoly, coarseIndexPoly, outIndex) {
   # index.int <- try(raster::intersect(grndCoveragePoly, coarseIndexPoly))
   # If raster::intersect fails - use RQGIS
   # if (class(index.int) == "try-error") {
-    # cat("Caught an error during raster::intersect, trying RQGIS intersection. \n")
+  # cat("Caught an error during raster::intersect, trying RQGIS intersection. \n")
   # set the environment, i.e. specify all the paths necessary to run QGIS from 
   # within R
-    my_env <- set_env(root="/Applications/QGIS.app")
-    # find_algorithms(search_term = "intersection", 
-                    # qgis_env = my_env)
-    # get_usage(alg = "qgis:intersection",
-              # qgis_env = my_env,
-              # intern = TRUE)
-    params <- get_args_man(alg = "qgis:intersection", qgis_env = my_env)
-    
-    params$INPUT <- coarseIndexPoly
-    params$INPUT2 <- grndCoveragePoly
-    params$OUTPUT <- outIndex
-    
-    out <- run_qgis(alg = "qgis:intersection",
-                    params = params,
-                    load_output = params$OUTPUT,
-                    qgis_env = my_env)
-    return(out)
-    
+  my_env <- set_env(root="/Applications/QGIS.app")
+  # find_algorithms(search_term = "intersection", 
+  # qgis_env = my_env)
+  # get_usage(alg = "qgis:intersection",
+  # qgis_env = my_env,
+  # intern = TRUE)
+  params <- get_args_man(alg = "qgis:intersection", qgis_env = my_env)
+  
+  params$INPUT <- coarseIndexPoly
+  params$INPUT2 <- grndCoveragePoly
+  params$OUTPUT <- outIndex
+  
+  out <- run_qgis(alg = "qgis:intersection",
+                  params = params,
+                  load_output = params$OUTPUT,
+                  qgis_env = my_env)
+  return(out)
+  
   # } else {
-    
-      # shapefile(index.int, outIndex, overwrite=T)
-      # return(index.int)
-    
-    # }# end try if
-    
+  
+  # shapefile(index.int, outIndex, overwrite=T)
+  # return(index.int)
+  
+  # }# end try if
+  
   
   # index.int2 <- raster::crop(index.int, grndCoveragePoly)
   # index.cover <- raster::cover(grndCoveragePoly, coarseIndexPoly)
   # index.crop <- raster::crop(coarseIndexPoly, grndCoveragePoly)
   # index.gInt <- gIntersection(coarseIndexPoly, grndCoveragePoly, byid = T, drop_lower_td = T)
   # index.grnd <- index.union[!duplicated(index.union@data$location) & !is.na(index.union@data$location),]
-
+  
   
   shapefile(index.int, outIndex, overwrite=T)
   return(index.int)
