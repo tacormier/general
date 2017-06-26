@@ -2,7 +2,7 @@
 source("/mnt/a/tcormier/scripts/general/R/handy_functions_TC.R")
 
 # directory containing all las files to tile - currently, this script assumes
-# there is one directory
+# there is one directory. Can rewrite to use paramter file or list of directories.
 lasdir <- "/mnt/a/tcormier/SE_Asia/Ellis_Paper/lidar/Amindo/"
 # numeric value representing the desired tile size in meters
 tilesize <- "20"
